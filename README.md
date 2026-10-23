@@ -178,9 +178,6 @@ These are different test layers, not additional live email scenarios. Actual fal
 - Change the store name and sign-off without changing the routing.
 - The separate lookup contract is a boundary for a future order-data integration. A replacement data source must return the same validated outcomes and be tested before use.
 
-## Demo videos
-
-Two captioned demos exist: one aimed at store owners and one walking through the system design for technical reviewers. Public links will be added here once they are hosted.
 
 ## Author
 
@@ -191,6 +188,3 @@ Two captioned demos exist: one aimed at store owners and one walking through the
 
 Feedback on the routing, readability and setup experience is welcome. Open an issue or get in touch.
 
-## License
-
-No license file is currently included. Add one before offering this project for reuse.
