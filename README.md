@@ -24,6 +24,7 @@ Built with **n8n**, **Gmail**, **Google Sheets**, **Supabase PostgreSQL**, **Gro
 - [Tested Behavior](#tested-behavior)
 - [Known Limitations](#known-limitations)
 - [Customization](#customization)
+- [Demo Videos](#demo-videos)
 - [Author](#author)
 
 ---
@@ -194,6 +195,17 @@ Recorded verification in the controlled source environment (October 20, 2026):
 
 - **Store branding:** Update `store_name` (`Sample Shop`) and `sign_off` (`Sample Shop Support`) in `PrepareSourceContext`.
 - **Order data source:** `GetOrder` isolates Google Sheets behind a narrow `{ order_number } -> { lookup_status, order }` contract so you can swap in a database or e-commerce API without changing main routing logic.
+
+---
+
+## Demo Videos
+
+Two captioned recordings accompany this package:
+
+| Recording | Loom Link |
+| --- | --- |
+| **Order Status Reply Drafter — Demo** (`n8n-OrderStatusReplyDrafter-demo-captioned`) — end-to-end processing of labeled test emails into verified Gmail drafts and manual-review routing | [Watch on Loom](https://www.loom.com/share/14d2cffc42b64e948d60d1af9de14328) |
+| **System Design Walkthrough** (`n8n-OrderStatusReplyDrafter-system-design-walkthrough-captioned`) — canvas tour of the nine numbered phases (`00`–`08`), the safety gates, the PostgreSQL ledger, and supervised recovery | [Watch on Loom](https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152) |
 
 ---
 
