@@ -23,7 +23,6 @@ Built with n8n, Gmail, Google Sheets, PostgreSQL, Groq and OpenRouter.
 - [Customization](#customization)
 - [Demo videos](#demo-videos)
 - [Author](#author)
-- [License](#license)
 
 ## What it does
 
@@ -177,6 +176,10 @@ These are different test layers, not additional live email scenarios. Actual fal
 
 - Change the store name and sign-off without changing the routing.
 - The separate lookup contract is a boundary for a future order-data integration. A replacement data source must return the same validated outcomes and be tested before use.
+
+## Demo videos
+
+Public links will be added here once they are hosted.
 
 
 ## Author
