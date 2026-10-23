@@ -1,0 +1,687 @@
+{
+  "name": "ObserveOrderStatusRegressionCase",
+  "active": false,
+  "nodes": [
+    {
+      "id": "t016-node-0",
+      "name": "ReceiveCase",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "state",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t016-node-1",
+      "name": "BeginObservation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        272,
+        784
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({...$('ReceiveCase').item.json.state,deadline:Date.now()+600000,polls:0}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-2",
+      "name": "ObservationTick",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        496,
+        784
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "t016-node-3",
+      "name": "FindExactSource",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        704
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 5,
+        "simple": true,
+        "filters": {
+          "q": "={{ 'subject:\"'+$('ObservationTick').item.json.fixture.subject+'\" -in:drafts to:'+$('ObservationTick').item.json.config.receiver }}",
+          "readStatus": "both"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "t016-node-4",
+      "name": "CollectSource",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        640
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const state=$('ObservationTick').item.json;\nconst messages=$input.all().map(i=>i.json).filter(m=>m.id&&String(m.Subject||m.subject||'')===state.fixture.subject);\nreturn [{json:{...state,messages,polls:state.polls+1,readFailed:$input.all().some(i=>i.json.error)}}];"
+      },
+      "executeOnce": false
+    },
+    {
+      "id": "t016-node-5",
+      "name": "FindMainExecutions",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        640
+      ],
+      "parameters": {
+        "resource": "execution",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "filters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('CollectSource').item.json.config.mainId }}"
+          }
+        },
+        "options": {
+          "activeWorkflows": true
+        },
+        "requestOptions": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "t016-node-6",
+      "name": "EvaluateTick",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        560
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const state=$('CollectSource').item.json;\nconst readFailed=state.readFailed||$input.all().some(i=>i.json.error);\nconst executions=$input.all().map(i=>i.json).filter(e=>e.id);\nconst messages=state.messages;\nconst matches=executions.filter(e=>{const r=e.data?.resultData?.runData||{};return (r.ReceivePendingDemo||[]).some(n=>(n.data?.main||[]).flat().some(i=>i.json?.id===messages[0]?.id));});\nlet result=readFailed?{caseId:state.fixture.id,status:'INFRASTRUCTURE_FAILED',stop:true,error:'Read-only evidence request failed'}:undefined;\nif(messages.length>1||matches.length>1)result={caseId:state.fixture.id,status:'INFRASTRUCTURE_FAILED',stop:true,error:'Ambiguous source or duplicate main executions; inspect before retry'};\nconst settled=matches.filter(e=>['success','error','canceled','crashed'].includes(e.status));\nif(!result&&Date.now()>=state.deadline&&!settled.length)result={caseId:state.fixture.id,status:'TIMEOUT',stop:true,error:'No settled actual-main execution within ten-minute deadline',sourceId:messages[0]?.id||null,polls:state.polls};\nreturn [{json:{...state,source:messages[0]||null,matched:settled[0]||null,result,observeDone:!!result||settled.length===1}}];"
+      },
+      "executeOnce": false
+    },
+    {
+      "id": "t016-node-7",
+      "name": "ObservationSettled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1616,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('EvaluateTick').item.json.observeDone === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-8",
+      "name": "HasExecution",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1840,
+        464
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !!$('EvaluateTick').item.json.matched && !$('EvaluateTick').item.json.result }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-9",
+      "name": "NextObservationTick",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2064,
+        752
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('EvaluateTick').item.json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-10",
+      "name": "PaceReadRequests",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        752
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 20,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "t016-node-11",
+      "name": "ReadActualExecution",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        368
+      ],
+      "parameters": {
+        "resource": "execution",
+        "operation": "get",
+        "executionId": "={{ $('EvaluateTick').item.json.matched.id }}",
+        "options": {
+          "activeWorkflows": true
+        },
+        "requestOptions": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": false
+    },
+    {
+      "id": "t016-node-12",
+      "name": "ReadSourceThread",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2288,
+        304
+      ],
+      "parameters": {
+        "resource": "thread",
+        "operation": "get",
+        "threadId": "={{ $('EvaluateTick').item.json.source.threadId }}",
+        "simple": false,
+        "options": {
+          "returnOnlyMessages": false
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "t016-node-13",
+      "name": "CaptureActualEvidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const state=$('EvaluateTick').item.json,execution=$('ReadActualExecution').first().json,thread=$input.first().json;\nconst run=execution.data?.resultData?.runData||{};\nconst childIds=(run.GetOrderDeterministically||[]).flatMap(r=>(r.data?.main||[]).flat().map(i=>i.metadata?.subExecution)).filter(Boolean);\nreturn [{json:{...state,execution,thread,childIds}}];"
+      },
+      "executeOnce": false
+    },
+    {
+      "id": "t016-node-14",
+      "name": "HasChildExecution",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2736,
+        224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('CaptureActualEvidence').item.json.childIds.length === 1 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-15",
+      "name": "ReadActualChild",
+      "type": "n8n-nodes-base.n8n",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        128
+      ],
+      "parameters": {
+        "resource": "execution",
+        "operation": "get",
+        "executionId": "={{ $('CaptureActualEvidence').item.json.childIds[0].executionId }}",
+        "options": {
+          "activeWorkflows": true
+        },
+        "requestOptions": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": false
+    },
+    {
+      "id": "t016-node-16",
+      "name": "NoChildEvidence",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2960,
+        320
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-17",
+      "name": "AssertActualCase",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3184,
+        224
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "\n// Independent evidence assertions. Never imports main-policy or computes a business route.\nfunction canonical(value) {\n if(Array.isArray(value))return value.map(canonical);\n if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])]));\n return value;\n}\nfunction graph(w){return JSON.stringify(canonical({nodes:w.nodes,connections:w.connections,settings:w.settings,nodeGroups:w.nodeGroups||[]}));}\nfunction values(run,name){return (run[name]||[]).flatMap(r=>(r.data?.main||[]).flat().map(i=>i.json));}\nfunction labels(m){return (m?.labelIds||m?.labels||[]).map(l=>typeof l==='string'?l:l.id);}\nfunction header(m,name){return m?.[name.toLowerCase()]||m?.[name]||m?.headers?.[name.toLowerCase()]||m?.payload?.headers?.find(h=>h.name.toLowerCase()===name.toLowerCase())?.value;}\nfunction address(v){if(v?.value)return v.value.map(a=>a.address?.trim().toLowerCase());if(typeof v==='string'){const m=v.match(/<([^<>]+)>/);return [(m?m[1]:v).trim().toLowerCase()];}return [];}\nfunction plainText(message){\n if(typeof message?.text==='string')return message.text;\n const visit=part=>{if(part?.mimeType==='text/plain'&&typeof part.body?.data==='string')return Buffer.from(part.body.data,'base64').toString('utf8');for(const child of part?.parts||[]){const text=visit(child);if(text!==null)return text;}return null;};\n return visit(message?.payload)||'';\n}\nfunction assess(fixture,execution,thread,config,sourceId){\n const checks=[],expected=fixture.expected,run=execution.data?.resultData?.runData||{},wf=execution.workflowData||execution.data?.workflowData;\n const check=(name,want,got)=>checks.push({name,expected:want,observed:got,pass:JSON.stringify(want)===JSON.stringify(got)});\n const required=(name,pass,observed)=>checks.push({name,expected:true,observed,pass:!!pass});\n const source=values(run,'ReceivePendingDemo').find(v=>v.id===sourceId);\n const messages=thread.messages||[],mail=messages.find(m=>m.id===sourceId),drafts=messages.filter(m=>labels(m).includes('DRAFT'));\n const outcome=values(run,'DraftOutcome').concat(values(run,'ReviewOutcome')).find(v=>v.message_id===sourceId);\n const lookup=values(run,'GetOrderDeterministically');\n const writers=['WriteVerifiedReplyGroq','WriteVerifiedReplyOpenRouter'].flatMap(n=>run[n]||[]);\n const successfulWriters=writers.filter(r=>r.executionStatus==='success');\n check('execution_success','success',execution.status);\n check('candidate_version',config.mainVersion,execution.workflowVersionId||wf?.versionId);\n required('runtime_unpinned',execution.mode==='trigger'&&Object.keys(execution.data?.resultData?.pinData||{}).length===0, Object.keys(execution.data?.resultData?.pinData||{}));\n required('source_execution_identity',!!source&&source.threadId===thread.id&&source.subject===fixture.subject,source?{id:source.id,threadId:source.threadId,subject:source.subject}:null);\n required('source_mailbox_identity',!!mail&&header(mail,'Subject')===fixture.subject,mail?{id:mail.id,subject:header(mail,'Subject')}:null);\n check('authenticated_source_address',[fixture.senderMode==='self'?config.receiver:config.customer],address(header(mail,'From')));\n check('source_recipient',[config.receiver],address(header(mail,'To')));\n check('outcome',expected.outcome,outcome?.outcome);\n check('lookup_count',expected.lookup?1:0,lookup.length);\n if(expected.lookup)check('lookup_status',expected.lookup,lookup[0]?.lookup_status);\n check('lookup_call_count',expected.lookup?1:0,(run.GetOrderDeterministically||[]).length);\n if(config.ledgerCandidate){\n  const claim=values(run,'ClaimResult')[0]?.claim,record=values(run,'CompleteLedger')[0]?.record;\n  required('ledger_claim_owned',claim?.acquired===true&&claim.result==='Claimed'&&claim.record?.owner_token===String(execution.id),claim);\n  check('ledger_candidate',config.ledgerCandidate,record?.candidate_version);\n  check('ledger_source',sourceId,record?.source_message_id);\n  check('ledger_mailbox',config.receiver,record?.mailbox);\n  check('ledger_owner',String(execution.id),record?.owner_token);\n  check('ledger_completed_phase','Completed',record?.phase);\n  check('ledger_completed_status','Completed',record?.status);\n  check('ledger_outcome',expected.outcome,record?.outcome);\n  const claimIndex=run.ClaimResult?.[0]?.executionIndex,work=run.PrepareSourceContext?.[0]?.executionIndex;\n  required('claim_before_business',Number.isFinite(claimIndex)&&claimIndex<work,{claimIndex,work});\n  const labelIndex=run.VerifyFinalSourceLabels?.[0]?.executionIndex,completeIndex=run.CompleteLedger?.[0]?.executionIndex;\n  required('labels_verified_before_completion',values(run,'VerifyFinalSourceLabels')[0]?.labels_verified===true&&labelIndex<completeIndex,{labelIndex,completeIndex});\n  if(expected.outcome==='draft_ready'){\n   check('ledger_draft_id',outcome?.draft_id,record?.draft_id);\n   const intent=run.RecordDraftIntent?.[0]?.executionIndex,save=run.SaveReviewDraft?.[0]?.executionIndex,saved=run.RecordSavedDraft?.[0]?.executionIndex,read=run.ReadSavedDraft?.[0]?.executionIndex;\n   required('durable_draft_ordering',intent<save&&save<saved&&saved<read,{intent,save,saved,read});\n  }\n }\n if(expected.drafting)required('drafting_success',successfulWriters.length===1,successfulWriters.length);\n else check('drafting_call_count',0,writers.length);\n check('draft_count',expected.outcome==='draft_ready'?1:0,drafts.length);\n required('source_triaged',labels(mail).includes(config.labels.triaged),labels(mail));\n check('source_review_label',expected.outcome==='manual_review',labels(mail).includes(config.labels.review));\n check('sent_customer_reply_count',0,messages.filter(m=>m.id!==sourceId&&labels(m).includes('SENT')).length);\n if(expected.outcome==='manual_review'){\n  required('visible_review_reason',typeof outcome?.reason==='string'&&!!outcome.reason.trim(),outcome?.reason);\n  if(expected.reason)check('review_reason',expected.reason,outcome?.reason);\n  if(expected.reasonPattern)required('review_reason_category',new RegExp(expected.reasonPattern,'i').test(outcome?.reason||''),outcome?.reason);\n  check('draft_save_call_count',0,(run.SaveReviewDraft||[]).length);\n }\n if(expected.outcome==='draft_ready'){\n  check('draft_save_call_count',1,(run.SaveReviewDraft||[]).length);\n  check('draft_readback_call_count',1,(run.ReadSavedDraft||[]).length);\n  const draft=drafts[0],body=plainText(draft),readback=values(run,'ReadSavedDraft')[0],confirmed=values(run,'ConfirmSavedDraft')[0];\n  check('draft_recipient',[config.customer],address(header(draft,'To')));\n  check('draft_subject',fixture.subject,header(draft,'Subject'));\n  check('draft_thread',thread.id,draft?.threadId);\n  check('draft_confirmed',true,confirmed?.draft_confirmed);\n  required('draft_id_readback',!!outcome?.draft_id&&outcome.draft_id===readback?.id&&draft?.id===outcome.draft_message_id,{draftId:outcome?.draft_id,messageId:draft?.id,readbackId:readback?.id});\n  const confirmIndex=run.ConfirmSavedDraft?.[0]?.executionIndex,triageIndex=run.MarkConfirmedDraftTriaged?.[0]?.executionIndex;\n  required('confirmation_before_triage',Number.isFinite(confirmIndex)&&confirmIndex<triageIndex,{confirmIndex,triageIndex});\n  check('readback_body',body.trim(),readback?.text?.trim());\n  if(expected.template)check('fixed_template_exact',expected.template,body.trim());\n  if(expected.status)required('supplied_status',new RegExp('\\\\b'+expected.status+'\\\\b','i').test(body),body);\n  if(expected.tracking)required('supplied_tracking',body.includes(expected.tracking),body);\n  if(expected.estimate)required('qualified_estimate',body.includes(expected.estimate)&&/estimat|expected|approximately|around/i.test(body),body);\n  required('no_urls',!/(https?:\\/\\/|www\\.)/i.test(body),body);\n  const allowedDates=expected.estimate?[expected.estimate]:[];\n  check('unexpected_iso_dates',[],[...new Set(body.match(/\\b\\d{4}-\\d{2}-\\d{2}\\b/g)||[])].filter(x=>!allowedDates.includes(x)));\n  required('no_other_order_facts',!(/1002|1003|TRK1002|TRK1003/.test(body)&&expected.orderNumber==='1001')&&!(expected.orderNumber==='1002'&&/TRK\\d+/.test(body)),body);\n  required('no_promised_action',!/(?:we(?:'ll| will)|I(?:'ll| will)) (?:contact|expedite|resend|refund|cancel|dispatch|ship|investigate)/i.test(body),body);\n  if(expected.status==='processing')required('dispatch_unknown',/not (?:yet )?(?:available|provided|known)|(?:do not|don't|cannot|can't) (?:have|confirm|provide)|no (?:confirmed |specific )?(?:dispatch|shipping|shipment) (?:date|time)|has(?:n't| not) (?:yet )?been (?:provided|supplied|confirmed)|(?:dispatch|shipping|shipment) (?:date|time) (?:is |remains )?(?:currently |still )?(?:unknown|unavailable|not (?:yet )?(?:known|provided|confirmed))/i.test(body),body);\n  if(expected.status==='delivered')required('no_invented_delivery_date',!/(?:delivered|arrived) (?:on|at|yesterday|today|last|this)|\\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\\b/i.test(body),body);\n }\n if(expected.cleanExcludes){\n  const cleaned=values(run,'CleanCustomerQuestion')[0]?.cleaned_question;\n  required('quoted_order_removed',typeof cleaned==='string'&&!cleaned.includes(expected.cleanExcludes),cleaned);\n  const input=values(run,'ValidatedRequest')[0],draftInput=values(run,'ResolveOrderRequest')[0];\n  check('shared_cleaned_input',cleaned,input?.cleaned_question);check('draft_cleaned_input',cleaned,draftInput?.cleaned_question);\n }\n return {assertionRevision:'T018-observer-2026-10-20',caseId:fixture.id,status:checks.every(c=>c.pass)?'PASS':'FAIL',executionId:execution.id,sourceId,threadId:thread.id,draftId:outcome?.draft_id||null,reason:outcome?.reason||'',draftText:drafts.length?plainText(drafts[0]):null,checks};\n}\nfunction summary(state,restored,versionStable){\n const cases=state.cases.map(c=>state.results.find(r=>r.caseId===c.id)||{caseId:c.id,status:'NOT_RUN'});\n const pass=!state.error&&restored&&versionStable&&cases.length===state.planned&&cases.every(c=>c.status==='PASS')&&state.sent===state.planned;\n return {mode:state.mode,label:(state.mode==='demo'?'Demo Essentials':'Regression')+' — '+cases.filter(c=>c.status==='PASS').length+'/'+state.planned,status:pass?'PASS':!restored?'CLEANUP_FAILED':!versionStable?'VERSION_MISMATCH':state.error?.code||'FAIL',planned:state.planned,sent:state.sent,completed:state.results.filter(r=>r.executionId).length,observedResults:state.results.length,notRun:cases.filter(c=>c.status==='NOT_RUN').length,mainVersion:state.config.mainVersion,childVersion:state.config.childVersion,fixtureRevision:state.fixtureRevision,restored,versionStable,error:state.error||null,cases,humanWordingReview:'PENDING'};\n}\n\n\nconst state=$('CaptureActualEvidence').item.json,child=$input.first().json;\nconst result=assess(state.fixture,state.execution,state.thread,state.config,state.source.id);\nif(state.fixture.expected.lookup){const childVersion=child.workflowVersionId||child.workflowData?.versionId;result.checks.push({name:'child_candidate_version',expected:state.config.childVersion,observed:childVersion,pass:childVersion===state.config.childVersion});result.checks.push({name:'child_success',expected:'success',observed:child.status,pass:child.status==='success'});result.childExecutionId=child.id;result.status=result.checks.every(c=>c.pass)?'PASS':'FAIL';}\nresult.stop=state.execution.status!=='success'||!result.checks.find(c=>c.name==='source_triaged')?.pass||!result.checks.find(c=>c.name==='candidate_version')?.pass||result.checks.some(c=>(c.name==='child_candidate_version'||c.name.startsWith('ledger_')||c.name==='labels_verified_before_completion'||c.name==='durable_draft_ordering'||c.name==='claim_before_business')&&!c.pass);\nreturn [{json:{result}}];"
+      },
+      "executeOnce": false
+    },
+    {
+      "id": "t016-node-18",
+      "name": "ReturnFailedObservation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2064,
+        560
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({result:$('EvaluateTick').item.json.result}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-19",
+      "name": "ObservationReadFailed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3184,
+        736
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({result:{caseId:$('ReceiveCase').first().json.state.fixture.id,status:'INFRASTRUCTURE_FAILED',stop:true,error:'Observation read failed; inspect execution before any fresh retest'} }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "ReceiveCase": {
+      "main": [
+        [
+          {
+            "node": "BeginObservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BeginObservation": {
+      "main": [
+        [
+          {
+            "node": "ObservationTick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ObservationTick": {
+      "main": [
+        [
+          {
+            "node": "FindExactSource",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FindExactSource": {
+      "main": [
+        [
+          {
+            "node": "CollectSource",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "CollectSource": {
+      "main": [
+        [
+          {
+            "node": "FindMainExecutions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FindMainExecutions": {
+      "main": [
+        [
+          {
+            "node": "EvaluateTick",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "EvaluateTick": {
+      "main": [
+        [
+          {
+            "node": "ObservationSettled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ObservationSettled": {
+      "main": [
+        [
+          {
+            "node": "HasExecution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PaceReadRequests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HasExecution": {
+      "main": [
+        [
+          {
+            "node": "ReadActualExecution",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ReturnFailedObservation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NextObservationTick": {
+      "main": [
+        [
+          {
+            "node": "ObservationTick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PaceReadRequests": {
+      "main": [
+        [
+          {
+            "node": "NextObservationTick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadActualExecution": {
+      "main": [
+        [
+          {
+            "node": "ReadSourceThread",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ObservationReadFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadSourceThread": {
+      "main": [
+        [
+          {
+            "node": "CaptureActualEvidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ObservationReadFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CaptureActualEvidence": {
+      "main": [
+        [
+          {
+            "node": "HasChildExecution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HasChildExecution": {
+      "main": [
+        [
+          {
+            "node": "ReadActualChild",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "NoChildEvidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadActualChild": {
+      "main": [
+        [
+          {
+            "node": "AssertActualCase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ObservationReadFailed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NoChildEvidence": {
+      "main": [
+        [
+          {
+            "node": "AssertActualCase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "nodeGroups": [
+    {
+      "id": "t016-group-0",
+      "name": "ObserveRealIntake",
+      "description": "Bounded reads find this exact source and its settled main execution; no sends or business decisions.",
+      "nodeIds": [
+        "t016-node-1",
+        "t016-node-2",
+        "t016-node-3",
+        "t016-node-4",
+        "t016-node-5",
+        "t016-node-6",
+        "t016-node-7",
+        "t016-node-8",
+        "t016-node-9",
+        "t016-node-10",
+        "t016-node-11",
+        "t016-node-12",
+        "t016-node-13",
+        "t016-node-14",
+        "t016-node-15",
+        "t016-node-16",
+        "t016-node-17",
+        "t016-node-18",
+        "t016-node-19"
+      ]
+    }
+  ]
+}

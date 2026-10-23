@@ -1,0 +1,4 @@
+"order_number","customer_email","status","item","tracking_number","estimated_delivery"
+"1001","controlled-sender@example.com","shipped","Ceramic mug set","TRK1001","2026-10-20"
+"1002","controlled-sender@example.com","processing","Linen tote bag","",""
+"1003","controlled-sender@example.com","delivered","Soy candle","TRK1003",""

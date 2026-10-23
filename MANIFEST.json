@@ -1,0 +1,203 @@
+{
+  "package": "Order-Status Reply Drafter client handoff",
+  "assembledDate": "2026-10-20",
+  "timezone": "Asia/Jakarta",
+  "scope": "Selected inactive sanitized exports, synthetic data, database SQL, client guides and self-contained test assets. No credentials, private project history or video.",
+  "manifestExcludesItself": true,
+  "files": [
+    {
+      "path": "database/order-status-ledger.sql",
+      "bytes": 10231,
+      "sha256": "1fae306574fbee006a4a547451d70e57815d73322cefbe6d350438bb6bcdccdf"
+    },
+    {
+      "path": "database/verify-order-status-ledger.sql",
+      "bytes": 1802,
+      "sha256": "eaff81d4c3181431399ea95226d7292277d9b7bc5b5c211547184cbb40e03e31"
+    },
+    {
+      "path": "deliverables/get-order.json",
+      "bytes": 5145,
+      "sha256": "023b7a0a83cdb56c6750e0e692eaa76d747205de4d54f4dbc49bcb7aa7e8616f"
+    },
+    {
+      "path": "deliverables/main-workflow.json",
+      "bytes": 115545,
+      "sha256": "1411a91a9bd87b0d63f54b35af7ec08ba12f6480f12ae9d20b4b7f530043e75d"
+    },
+    {
+      "path": "deliverables/regression/dataset-rows.js",
+      "bytes": 601,
+      "sha256": "8d25abfd291eaa6b7463bb55520533e0aa303e8522e1f25407e8080b99371b48"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/cases.json",
+      "bytes": 3094,
+      "sha256": "3b2d6484d9a3129ff4f6e07bcd797df8086c0bf15e0311d7de34d606e4e6de2f"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/observe-order-status-case.json",
+      "bytes": 28487,
+      "sha256": "2c500c0bb5785d6dec1575533afca85bb02abf31f05893ffde0495af9b2e93c5"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/observer-assertions.js",
+      "bytes": 10694,
+      "sha256": "aa27e026140221ed26e4cd83636aeb9c6d265c5009dea813c266358e76494d1a"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/README.md",
+      "bytes": 8067,
+      "sha256": "68c98b29ade0c7143c822ca61de7b79ea9b6092e608ec87a399fe77cb986e188"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/run-order-status-regression.json",
+      "bytes": 101818,
+      "sha256": "5a7e9d7f42e051bd0646607807cb1bc67e619cc133e6050e03da6a756148e748"
+    },
+    {
+      "path": "deliverables/regression/end-to-end/sender-callable.json",
+      "bytes": 9040,
+      "sha256": "6982b56eaf028b14df468d428f908f4fd2d86b0cb1279d3330a9c2137790c209"
+    },
+    {
+      "path": "deliverables/regression/evaluation-cases.json",
+      "bytes": 4343,
+      "sha256": "4dbe3f0d942761436d2a593ed0fd14f9145f57e9ffeca3da121458ff461d8651"
+    },
+    {
+      "path": "deliverables/regression/evaluation-workflow.json",
+      "bytes": 19846,
+      "sha256": "d662720f730561c4ea190ecb47b2a3c460bf3be97d3090a5e543205b8ac49043"
+    },
+    {
+      "path": "deliverables/regression/lib/check-source-linkage.js",
+      "bytes": 1054,
+      "sha256": "bc47f5f7d9c2cde1475bcc1dbfbd1c9d301e9c720254f4ed8d997e03e917d298"
+    },
+    {
+      "path": "deliverables/regression/lib/main-policy.js",
+      "bytes": 9108,
+      "sha256": "dad27b20a21455dc5ed48fef90b980310fc92ca58a3da4d5af06fe0575b589e9"
+    },
+    {
+      "path": "deliverables/regression/lib/order-fixtures.js",
+      "bytes": 4145,
+      "sha256": "7f1e87d10efefb9fd4fcfc45eed5a5380129f9db2ac01587d858d05747f8f397"
+    },
+    {
+      "path": "deliverables/regression/lib/recovery-policy.js",
+      "bytes": 2733,
+      "sha256": "39381616c06c1d391c3e65628d6bcdc0fb945fb325e4b08f5d07877b31b199e5"
+    },
+    {
+      "path": "deliverables/regression/lib/score-model.js",
+      "bytes": 1996,
+      "sha256": "2a6a709c4b764a254bc2cc29972dd1d56bbe020761caf5b0bf5758c54556f941"
+    },
+    {
+      "path": "deliverables/regression/lib/validate-order.js",
+      "bytes": 2524,
+      "sha256": "c8a337c0fc0f0f08567738cee8e958819c573962fe35edbd80526dde588ff87a"
+    },
+    {
+      "path": "deliverables/regression/model-definitions.json",
+      "bytes": 2850,
+      "sha256": "023a21f78d6d9f5cbec65fcf6e606e59ff60fc4e31923352998e90bdf6377cdd"
+    },
+    {
+      "path": "deliverables/regression/policy-cases.json",
+      "bytes": 133332,
+      "sha256": "69fa44a76a542c60e07505370793c72c43bd7d497a92e69e779f0090d3925f37"
+    },
+    {
+      "path": "deliverables/regression/README.md",
+      "bytes": 5717,
+      "sha256": "f89fbf510bd917ffaff5b4c18cf0e885150aecfd5bafecd5b9814b19ca660c25"
+    },
+    {
+      "path": "deliverables/regression/run-regression.js",
+      "bytes": 2715,
+      "sha256": "0f3fdddf86cf0a614d862abaf21be348610e52a98216952f8580bf7fde8b3701"
+    },
+    {
+      "path": "deliverables/regression/source-linkage.json",
+      "bytes": 18127,
+      "sha256": "98377bc522d9c3273d136da3b4066bb21739c2a3ab7c9492f5cb481b06d11c6a"
+    },
+    {
+      "path": "deliverables/regression/verification-results.json",
+      "bytes": 3620,
+      "sha256": "9640ff45d0c7127af26be951bd1abff5d8f9cae1f00985e08817b0197c4bd0fe"
+    },
+    {
+      "path": "deliverables/reliability/README.md",
+      "bytes": 967,
+      "sha256": "96621204ec29fd727211eed3f7eac54d70ef2df2cccc8dff86825ef0a958118d"
+    },
+    {
+      "path": "deliverables/reliability/recover-order-status-request.json",
+      "bytes": 3389,
+      "sha256": "f9c0602b3b7d60f76e632995c7fe724f336c6546325b9f1d82c93e825ae2c653"
+    },
+    {
+      "path": "deliverables/reliability/verification-results.json",
+      "bytes": 2855,
+      "sha256": "9ebc3a21c415ced0efdddbd96e022ee773707d4c064cac07577708d2946f010b"
+    },
+    {
+      "path": "deliverables/sample-orders.csv",
+      "bytes": 333,
+      "sha256": "bb5faed79b93c94ffc43459991ac5b17c9827c392ec825971a07e7945401c2a9"
+    },
+    {
+      "path": "docs/demo-test-cases.md",
+      "bytes": 5000,
+      "sha256": "6536eccf6ec2fb27861641496fdb1ce1d5b80dcd356d6c5f719b1739e564ea2e"
+    },
+    {
+      "path": "docs/ledger-database-setup.md",
+      "bytes": 2966,
+      "sha256": "b3605fb9e43dfd62dd92ddfb3783158433cba7f386b6e056c1677369cb48661d"
+    },
+    {
+      "path": "docs/order-status-recovery-guide.md",
+      "bytes": 4314,
+      "sha256": "5840dccee0f0bb1e97c11cceeb5018af4221848459caa40a4065783d77d1e372"
+    },
+    {
+      "path": "docs/rebinding-map.md",
+      "bytes": 3019,
+      "sha256": "4920c3908dceb4b32c5d3ac614961a259cae2e8293d609860201a0f8820deb73"
+    },
+    {
+      "path": "docs/setup-and-rebinding.md",
+      "bytes": 8780,
+      "sha256": "c1fd4fa77a96c818558da553bca27e3e7af7a93e6cdbf87e0ce59a8bfeb564cb"
+    },
+    {
+      "path": "docs/system-design.md",
+      "bytes": 66517,
+      "sha256": "556bd7c22e3eeb56141cba7c0bae6597081ed11d838494c49380d849cb15c3ed"
+    },
+    {
+      "path": "README.md",
+      "bytes": 12891,
+      "sha256": "65188883967cbbdb4fc8e1f1017d534b6c9ef55135af654b984f86989ca45d66"
+    },
+    {
+      "path": "tests/check-recovery.js",
+      "bytes": 13253,
+      "sha256": "c3bfe3e2ad7ff2410c9454e8632eec1d4a224a8be22db23e2bc0fa1b8254cffc"
+    },
+    {
+      "path": "tests/check-source-linkage.js",
+      "bytes": 2240,
+      "sha256": "0c8a8e2b25de4c67c41a1f54b0a660c2a13f51a4b4aba608ae12f914feea0eaa"
+    }
+  ],
+  "documentationUpdatedDate": "2026-10-23",
+  "excludedFilesystemMetadata": [
+    ".DS_Store"
+  ]
+}

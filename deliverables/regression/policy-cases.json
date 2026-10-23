@@ -1,0 +1,5333 @@
+[
+  {
+    "id": "C01-invalid-routing-1",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-duplicate",
+        "thread_id": "t013-synthetic-thread-C01-duplicate",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "duplicate",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "duplicate_order",
+      "invalid_fields": [],
+      "message_id": "t013-synthetic-C01-duplicate",
+      "thread_id": "t013-synthetic-thread-C01-duplicate",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-2",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-duplicate-before-validation",
+        "thread_id": "t013-synthetic-thread-C01-duplicate-before-validation",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "duplicate",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "duplicate_order",
+      "invalid_fields": [],
+      "message_id": "t013-synthetic-C01-duplicate-before-validation",
+      "thread_id": "t013-synthetic-thread-C01-duplicate-before-validation",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-3",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-missing-order_number",
+        "thread_id": "t013-synthetic-thread-C01-missing-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-missing-order_number",
+      "thread_id": "t013-synthetic-thread-C01-missing-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-4",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-blank-order_number",
+        "thread_id": "t013-synthetic-thread-C01-blank-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-blank-order_number",
+      "thread_id": "t013-synthetic-thread-C01-blank-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-5",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-null-order_number",
+        "thread_id": "t013-synthetic-thread-C01-null-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-null-order_number",
+      "thread_id": "t013-synthetic-thread-C01-null-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-6",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-order_number",
+        "thread_id": "t013-synthetic-thread-C01-number-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-number-order_number",
+      "thread_id": "t013-synthetic-thread-C01-number-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-7",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-order_number",
+        "thread_id": "t013-synthetic-thread-C01-boolean-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-order_number",
+      "thread_id": "t013-synthetic-thread-C01-boolean-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-8",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-order_number",
+        "thread_id": "t013-synthetic-thread-C01-object-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-object-order_number",
+      "thread_id": "t013-synthetic-thread-C01-object-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-9",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-order_number",
+        "thread_id": "t013-synthetic-thread-C01-array-order_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-array-order_number",
+      "thread_id": "t013-synthetic-thread-C01-array-order_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-10",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-missing-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-missing-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-missing-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-missing-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-11",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-blank-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-blank-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-blank-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-blank-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-12",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-null-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-null-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-null-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-null-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-13",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-number-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-number-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-number-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-14",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-boolean-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-boolean-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-15",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-object-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-object-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-object-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-16",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-customer_email",
+        "thread_id": "t013-synthetic-thread-C01-array-customer_email",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-array-customer_email",
+      "thread_id": "t013-synthetic-thread-C01-array-customer_email",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-17",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-missing-status",
+        "thread_id": "t013-synthetic-thread-C01-missing-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-missing-status",
+      "thread_id": "t013-synthetic-thread-C01-missing-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-18",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-blank-status",
+        "thread_id": "t013-synthetic-thread-C01-blank-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-blank-status",
+      "thread_id": "t013-synthetic-thread-C01-blank-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-19",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-null-status",
+        "thread_id": "t013-synthetic-thread-C01-null-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-null-status",
+      "thread_id": "t013-synthetic-thread-C01-null-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-20",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-status",
+        "thread_id": "t013-synthetic-thread-C01-number-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-number-status",
+      "thread_id": "t013-synthetic-thread-C01-number-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-21",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-status",
+        "thread_id": "t013-synthetic-thread-C01-boolean-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-status",
+      "thread_id": "t013-synthetic-thread-C01-boolean-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-22",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-status",
+        "thread_id": "t013-synthetic-thread-C01-object-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-object-status",
+      "thread_id": "t013-synthetic-thread-C01-object-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-23",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-status",
+        "thread_id": "t013-synthetic-thread-C01-array-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-array-status",
+      "thread_id": "t013-synthetic-thread-C01-array-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-24",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-missing-item",
+        "thread_id": "t013-synthetic-thread-C01-missing-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-missing-item",
+      "thread_id": "t013-synthetic-thread-C01-missing-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-25",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-blank-item",
+        "thread_id": "t013-synthetic-thread-C01-blank-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-blank-item",
+      "thread_id": "t013-synthetic-thread-C01-blank-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-26",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-null-item",
+        "thread_id": "t013-synthetic-thread-C01-null-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-null-item",
+      "thread_id": "t013-synthetic-thread-C01-null-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-27",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-item",
+        "thread_id": "t013-synthetic-thread-C01-number-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-number-item",
+      "thread_id": "t013-synthetic-thread-C01-number-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-28",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-item",
+        "thread_id": "t013-synthetic-thread-C01-boolean-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-item",
+      "thread_id": "t013-synthetic-thread-C01-boolean-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-29",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-item",
+        "thread_id": "t013-synthetic-thread-C01-object-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-object-item",
+      "thread_id": "t013-synthetic-thread-C01-object-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-30",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-item",
+        "thread_id": "t013-synthetic-thread-C01-array-item",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "item"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "item"
+      ],
+      "message_id": "t013-synthetic-C01-array-item",
+      "thread_id": "t013-synthetic-thread-C01-array-item",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-31",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-non-digit-order",
+        "thread_id": "t013-synthetic-thread-C01-non-digit-order",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-non-digit-order",
+      "thread_id": "t013-synthetic-thread-C01-non-digit-order",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-32",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-mismatched-order",
+        "thread_id": "t013-synthetic-thread-C01-mismatched-order",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-mismatched-order",
+      "thread_id": "t013-synthetic-thread-C01-mismatched-order",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-33",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-leading-zero-not-equal",
+        "thread_id": "t013-synthetic-thread-C01-leading-zero-not-equal",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "order_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "order_number"
+      ],
+      "message_id": "t013-synthetic-C01-leading-zero-not-equal",
+      "thread_id": "t013-synthetic-thread-C01-leading-zero-not-equal",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-34",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-35",
+        "thread_id": "t013-synthetic-thread-C01-email-35",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-35",
+      "thread_id": "t013-synthetic-thread-C01-email-35",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-35",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-36",
+        "thread_id": "t013-synthetic-thread-C01-email-36",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-36",
+      "thread_id": "t013-synthetic-thread-C01-email-36",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-36",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-37",
+        "thread_id": "t013-synthetic-thread-C01-email-37",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-37",
+      "thread_id": "t013-synthetic-thread-C01-email-37",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-37",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-38",
+        "thread_id": "t013-synthetic-thread-C01-email-38",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-38",
+      "thread_id": "t013-synthetic-thread-C01-email-38",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-38",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-39",
+        "thread_id": "t013-synthetic-thread-C01-email-39",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-39",
+      "thread_id": "t013-synthetic-thread-C01-email-39",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-39",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-email-40",
+        "thread_id": "t013-synthetic-thread-C01-email-40",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "customer_email"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "customer_email"
+      ],
+      "message_id": "t013-synthetic-C01-email-40",
+      "thread_id": "t013-synthetic-thread-C01-email-40",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-40",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-unsupported-status",
+        "thread_id": "t013-synthetic-thread-C01-unsupported-status",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "status"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "status"
+      ],
+      "message_id": "t013-synthetic-C01-unsupported-status",
+      "thread_id": "t013-synthetic-thread-C01-unsupported-status",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-41",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-tracking_number",
+        "thread_id": "t013-synthetic-thread-C01-number-tracking_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "tracking_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "tracking_number"
+      ],
+      "message_id": "t013-synthetic-C01-number-tracking_number",
+      "thread_id": "t013-synthetic-thread-C01-number-tracking_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-42",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-tracking_number",
+        "thread_id": "t013-synthetic-thread-C01-boolean-tracking_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "tracking_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "tracking_number"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-tracking_number",
+      "thread_id": "t013-synthetic-thread-C01-boolean-tracking_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-43",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-tracking_number",
+        "thread_id": "t013-synthetic-thread-C01-object-tracking_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "tracking_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "tracking_number"
+      ],
+      "message_id": "t013-synthetic-C01-object-tracking_number",
+      "thread_id": "t013-synthetic-thread-C01-object-tracking_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-44",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-tracking_number",
+        "thread_id": "t013-synthetic-thread-C01-array-tracking_number",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "tracking_number"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "tracking_number"
+      ],
+      "message_id": "t013-synthetic-C01-array-tracking_number",
+      "thread_id": "t013-synthetic-thread-C01-array-tracking_number",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-45",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-number-estimated_delivery",
+        "thread_id": "t013-synthetic-thread-C01-number-estimated_delivery",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-number-estimated_delivery",
+      "thread_id": "t013-synthetic-thread-C01-number-estimated_delivery",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-46",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-boolean-estimated_delivery",
+        "thread_id": "t013-synthetic-thread-C01-boolean-estimated_delivery",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-boolean-estimated_delivery",
+      "thread_id": "t013-synthetic-thread-C01-boolean-estimated_delivery",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-47",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-object-estimated_delivery",
+        "thread_id": "t013-synthetic-thread-C01-object-estimated_delivery",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-object-estimated_delivery",
+      "thread_id": "t013-synthetic-thread-C01-object-estimated_delivery",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-48",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-array-estimated_delivery",
+        "thread_id": "t013-synthetic-thread-C01-array-estimated_delivery",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-array-estimated_delivery",
+      "thread_id": "t013-synthetic-thread-C01-array-estimated_delivery",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-49",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-02-30",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-02-30",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-02-30",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-02-30",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-50",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-tomorrow",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-tomorrow",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-tomorrow",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-tomorrow",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-51",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-10-20T12:00:00Z",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-10-20T12:00:00Z",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-10-20T12:00:00Z",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-10-20T12:00:00Z",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-52",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-10-20 to 2026-10-22",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-10-20 to 2026-10-22",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-10-20 to 2026-10-22",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-10-20 to 2026-10-22",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-53",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-02-29",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-02-29",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-02-29",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-02-29",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-54",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-1900-02-29",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-1900-02-29",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-1900-02-29",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-1900-02-29",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-55",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-13-01",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-13-01",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-13-01",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-13-01",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-56",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-00-01",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-00-01",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-00-01",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-00-01",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-57",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-01-00",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-01-00",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-01-00",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-01-00",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-58",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-2026-04-31",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-04-31",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-2026-04-31",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-2026-04-31",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C01-invalid-routing-59",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C01-invalid-date-0000-01-01",
+        "thread_id": "t013-synthetic-thread-C01-invalid-date-0000-01-01",
+        "subject": "Order 1001",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null,
+        "reason": "invalid_order_data",
+        "invalid_fields": [
+          "estimated_delivery"
+        ]
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "invalid_fields": [
+        "estimated_delivery"
+      ],
+      "message_id": "t013-synthetic-C01-invalid-date-0000-01-01",
+      "thread_id": "t013-synthetic-thread-C01-invalid-date-0000-01-01",
+      "subject": "Order 1001"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "C02-empty-1",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C02-empty",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "item": "Ceramic mug set",
+          "tracking_number": "TRK1001",
+          "estimated_delivery": "2026-10-20"
+        }
+      },
+      {
+        "text": "  "
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "message_id": "t013-synthetic-C02-empty",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C02-tracking-1",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C02-tracking",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "item": "Ceramic mug set",
+          "tracking_number": "TRK1001",
+          "estimated_delivery": "2026-10-20"
+        }
+      },
+      {
+        "text": "Your order is shipped."
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "message_id": "t013-synthetic-C02-tracking",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C02-http-1",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C02-http",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "item": "Ceramic mug set",
+          "tracking_number": "TRK1001",
+          "estimated_delivery": "2026-10-20"
+        }
+      },
+      {
+        "text": "TRK1001 https://example.com"
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "message_id": "t013-synthetic-C02-http",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C02-www-1",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C02-www",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "item": "Ceramic mug set",
+          "tracking_number": "TRK1001",
+          "estimated_delivery": "2026-10-20"
+        }
+      },
+      {
+        "text": "TRK1001 WWW.example.com"
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "message_id": "t013-synthetic-C02-www",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-1",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-absent",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {},
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-absent",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-2",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-null",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": null
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-null",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-3",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-array",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": []
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-array",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-4",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-request-type",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "other",
+          "order_numbers": [],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-request-type",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-5",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-missing-type",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "order_numbers": [],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-missing-type",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-6",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-missing-numbers",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-missing-numbers",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-7",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-missing-reason",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": []
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-missing-reason",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-8",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-numbers-string",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": "1001",
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-numbers-string",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-9",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-number-value",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            1001
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-number-value",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-10",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-invalid-digits",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "ORD1001"
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-invalid-digits",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-11",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-whitespace-number",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            " 1001 "
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-whitespace-number",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-shape-all-12",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-reason-type",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001"
+          ],
+          "reason": 3
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "t013-synthetic-C03-reason-type",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C03-dedup-1",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "t013-synthetic-C03-dedup",
+        "thread_id": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "lookup",
+      "reason": "",
+      "order_numbers": [
+        "1001"
+      ],
+      "order_number": "1001",
+      "message_id": "t013-synthetic-C03-dedup",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C04-rejected-all-1",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-missing-missing",
+        "threadId": "t013-synthetic-thread-missing-missing",
+        "subject": "Has my order shipped?",
+        "text": "Has my order shipped?",
+        "from": null
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-2",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-missing-malformed",
+        "threadId": "t013-synthetic-thread-missing-malformed",
+        "subject": "Has my order shipped?",
+        "text": "Has my order shipped?",
+        "from": {
+          "value": [
+            {
+              "address": "not-an-address"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-3",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-missing-multiple",
+        "threadId": "t013-synthetic-thread-missing-multiple",
+        "subject": "Has my order shipped?",
+        "text": "Has my order shipped?",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            },
+            {
+              "address": "other@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-4",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-missing-outside",
+        "threadId": "t013-synthetic-thread-missing-outside",
+        "subject": "Has my order shipped?",
+        "text": "Has my order shipped?",
+        "from": {
+          "value": [
+            {
+              "address": "outside@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-5",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-unknown-missing",
+        "threadId": "t013-synthetic-thread-unknown-missing",
+        "subject": "Where is order 9999?",
+        "text": "Where is order 9999?",
+        "from": null
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-6",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-unknown-malformed",
+        "threadId": "t013-synthetic-thread-unknown-malformed",
+        "subject": "Where is order 9999?",
+        "text": "Where is order 9999?",
+        "from": {
+          "value": [
+            {
+              "address": "not-an-address"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-7",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-unknown-multiple",
+        "threadId": "t013-synthetic-thread-unknown-multiple",
+        "subject": "Where is order 9999?",
+        "text": "Where is order 9999?",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            },
+            {
+              "address": "other@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-8",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-unknown-outside",
+        "threadId": "t013-synthetic-thread-unknown-outside",
+        "subject": "Where is order 9999?",
+        "text": "Where is order 9999?",
+        "from": {
+          "value": [
+            {
+              "address": "outside@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-9",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-known-missing",
+        "threadId": "t013-synthetic-thread-known-missing",
+        "subject": "Where is order 1001?",
+        "text": "Where is order 1001?",
+        "from": null
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-10",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-known-malformed",
+        "threadId": "t013-synthetic-thread-known-malformed",
+        "subject": "Where is order 1001?",
+        "text": "Where is order 1001?",
+        "from": {
+          "value": [
+            {
+              "address": "not-an-address"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-11",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-known-multiple",
+        "threadId": "t013-synthetic-thread-known-multiple",
+        "subject": "Where is order 1001?",
+        "text": "Where is order 1001?",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            },
+            {
+              "address": "other@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-12",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-known-outside",
+        "threadId": "t013-synthetic-thread-known-outside",
+        "subject": "Where is order 1001?",
+        "text": "Where is order 1001?",
+        "from": {
+          "value": [
+            {
+              "address": "outside@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    }
+  },
+  {
+    "id": "C04-rejected-all-13",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-empty",
+        "threadId": "t013-synthetic-thread-empty",
+        "subject": "Order 1001",
+        "text": "  > quoted only\n\t> second",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "empty_input"
+    }
+  },
+  {
+    "id": "C04-normalized-missing-1",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-normalized-missing",
+        "threadId": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "text": "Has my order shipped?",
+        "from": {
+          "value": [
+            {
+              "address": "  CONTROLLED-SENDER@EXAMPLE.COM  "
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "extract",
+      "reason": "",
+      "recipient": "controlled-sender@example.com",
+      "message_id": "t013-synthetic-C04-normalized-missing",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C04-normalized-unknown-1",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-normalized-unknown",
+        "threadId": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "text": "Where is order 9999?",
+        "from": {
+          "value": [
+            {
+              "address": "  CONTROLLED-SENDER@EXAMPLE.COM  "
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "extract",
+      "reason": "",
+      "recipient": "controlled-sender@example.com",
+      "message_id": "t013-synthetic-C04-normalized-unknown",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "C04-normalized-known-1",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "t013-synthetic-C04-normalized-known",
+        "threadId": "t013-synthetic-thread-boundary",
+        "subject": "Order request",
+        "text": "Where is order 1001?",
+        "from": {
+          "value": [
+            {
+              "address": "  CONTROLLED-SENDER@EXAMPLE.COM  "
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "extract",
+      "reason": "",
+      "recipient": "controlled-sender@example.com",
+      "message_id": "t013-synthetic-C04-normalized-known",
+      "thread_id": "t013-synthetic-thread-boundary",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "main-save-final-1",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "save",
+      "reason": "",
+      "draft_confirmed": true,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "main-save-mismatch-retest-1",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "WRONG SUBJECT",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "extract-supported",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001"
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "lookup",
+      "order_number": "1001",
+      "order_numbers": [
+        "1001"
+      ],
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "extract-missing",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "missing",
+      "order_number": null,
+      "order_numbers": [],
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "extract-multiple",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1002"
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "multiple_orders",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "extract-manual-reason",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "manual_review",
+          "order_numbers": [
+            "1001"
+          ],
+          "reason": "refund_request"
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "refund_request",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "extract-manual-default",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "manual_review",
+          "order_numbers": [],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "unsupported_request",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "lookup-owned",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "tracking_number": "TRK1001"
+        }
+      }
+    ],
+    "expected": {
+      "route": "draft",
+      "reason": "",
+      "order": {
+        "order_number": "1001",
+        "customer_email": "controlled-sender@example.com",
+        "status": "shipped",
+        "tracking_number": "TRK1001"
+      },
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "lookup-ownership",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-receiver@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1001"
+      },
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "tracking_number": "TRK1001"
+        }
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "sender_mismatch",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "lookup-not-found",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": ""
+      },
+      {
+        "lookup_status": "not_found",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "unknown",
+      "reason": "",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "lookup-invalid-contract",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": ""
+      },
+      {
+        "lookup_status": "unexpected",
+        "order": null
+      }
+    ],
+    "throws": "invalid_lookup_contract"
+  },
+  {
+    "id": "lookup-unverified-facts",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": ""
+      },
+      {
+        "lookup_status": "not_found",
+        "order": {}
+      }
+    ],
+    "throws": "lookup_exposed_unverified_facts"
+  },
+  {
+    "id": "lookup-found-mismatch",
+    "fn": "lookup",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "lookup",
+        "reason": "",
+        "order_number": "1002"
+      },
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "tracking_number": "TRK1001"
+        }
+      }
+    ],
+    "throws": "invalid_found_contract"
+  },
+  {
+    "id": "draft-valid",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "text": "  Shipped. Tracking TRK1001.  "
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "save",
+      "reason": "",
+      "reply_body": "Shipped. Tracking TRK1001.",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "draft-no-tracking-required",
+    "fn": "draftCheck",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "draft",
+        "reason": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "controlled-sender@example.com",
+          "status": "shipped",
+          "tracking_number": null
+        }
+      },
+      {
+        "text": "Processing."
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "save",
+      "reason": "",
+      "reply_body": "Processing.",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "provider-107",
+    "fn": "modelError",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "error": "Model output does not fit required format"
+      },
+      "extract",
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "failed_stage": "extract",
+      "failed_provider": "groq",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "provider-108",
+    "fn": "modelError",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "error": "429 Too many requests"
+      },
+      "extract",
+      "groq"
+    ],
+    "expected": {
+      "route": "fallback",
+      "reason": "model_provider_failure",
+      "failed_stage": "extract",
+      "failed_provider": "groq",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "provider-109",
+    "fn": "modelError",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "error": "503 Service unavailable"
+      },
+      "extract",
+      "openrouter"
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "model_provider_failure",
+      "failed_stage": "extract",
+      "failed_provider": "openrouter",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "provider-110",
+    "fn": "modelError",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "error": "Unknown failure"
+      },
+      "extract",
+      "groq"
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "unexpected_model_error",
+      "failed_stage": "extract",
+      "failed_provider": "groq",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "save-reject-null",
+    "fn": "saveGate",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": null,
+        "route": "save",
+        "reason": "",
+        "reply_body": "body"
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient",
+      "reply_body": null,
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "save-reject-outside@example.com",
+    "fn": "saveGate",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "outside@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "body"
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient",
+      "reply_body": null,
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "save-reject-CONTROLLED-SENDER@EXAMPLE.COM",
+    "fn": "saveGate",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "CONTROLLED-SENDER@EXAMPLE.COM",
+        "route": "save",
+        "reason": "",
+        "reply_body": "body"
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient",
+      "reply_body": null,
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "save-allow-controlled-sender@example.com",
+    "fn": "saveGate",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": ""
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "save",
+      "recipient": "controlled-sender@example.com",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "save-allow-controlled-receiver@example.com",
+    "fn": "saveGate",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-receiver@example.com",
+        "route": "save",
+        "reason": ""
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "save",
+      "recipient": "controlled-receiver@example.com",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
+    "id": "intake-clean-quotes",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "message",
+        "threadId": "thread",
+        "subject": "Order",
+        "text": "Please check order 1001.\n> Old order 9999",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "extract",
+      "cleaned_question": "Please check order 1001.",
+      "message_id": "message",
+      "thread_id": "thread",
+      "subject": "Order",
+      "recipient": "controlled-sender@example.com"
+    }
+  },
+  {
+    "id": "intake-missing-context",
+    "fn": "intake",
+    "args": [
+      {
+        "id": "",
+        "threadId": "thread",
+        "subject": "Order",
+        "text": "Please check order 1001.\n> Old order 9999",
+        "from": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "controlled-sender@example.com",
+        "controlled-receiver@example.com"
+      ]
+    ],
+    "throws": "missing_source_context"
+  },
+  {
+    "id": "confirm-reject-saved-id",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-saved-message",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-saved-thread",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "wrong"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-id",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "wrong",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-message",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "wrong",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-thread",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "wrong",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-subject",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "wrong",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-body",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "wrong",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-recipient",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "other@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "confirm-reject-read-multiple-recipients",
+    "fn": "confirmDraft",
+    "args": [
+      {
+        "message_id": "t013-synthetic-main-save",
+        "thread_id": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "recipient": "controlled-sender@example.com",
+        "route": "save",
+        "reason": "",
+        "reply_body": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support"
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "message": {
+          "id": "t013-synthetic-draft-message",
+          "threadId": "t013-synthetic-main-thread"
+        }
+      },
+      {
+        "id": "t013-synthetic-draft",
+        "messageId": "t013-synthetic-draft-message",
+        "threadId": "t013-synthetic-main-thread",
+        "subject": "Order request",
+        "text": "Order 1001 shipped. Tracking TRK1001. Delivery estimate 2026-10-20.\nSample Shop Support\n",
+        "to": {
+          "value": [
+            {
+              "address": "controlled-sender@example.com"
+            },
+            {
+              "address": "controlled-receiver@example.com"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "route": "fatal",
+      "reason": "draft_confirmation_failed_inspect_before_retry",
+      "draft_confirmed": false,
+      "message_id": "t013-synthetic-main-save",
+      "thread_id": "t013-synthetic-main-thread",
+      "subject": "Order request"
+    }
+  },
+  {
+    "id": "T015SourceContext",
+    "fn": "prepareSourceContext",
+    "args": [
+      {
+        "id": "s",
+        "threadId": "t",
+        "subject": 3,
+        "text": 4
+      }
+    ],
+    "expected": {
+      "message_id": "s",
+      "thread_id": "t",
+      "subject": "",
+      "original_body": "",
+      "route": "extract"
+    },
+    "absent": [
+      "order",
+      "cleaned_question"
+    ]
+  },
+  {
+    "id": "T015MissingSource",
+    "fn": "prepareSourceContext",
+    "args": [
+      {
+        "threadId": "t"
+      }
+    ],
+    "throws": "missing_source_context"
+  },
+  {
+    "id": "T015QuoteCleaning",
+    "fn": "cleanCustomerQuestion",
+    "args": [
+      {
+        "original_body": " Where is order 1001?\r\n > old 1002\r\n> 1003"
+      }
+    ],
+    "expected": {
+      "cleaned_question": "Where is order 1001?"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015MailboxNormalization",
+    "fn": "validateRequestInput",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        },
+        "route": "extract"
+      },
+      {
+        "from": {
+          "value": [
+            {
+              "address": " BUYER@EXAMPLE.COM "
+            }
+          ]
+        }
+      },
+      [
+        "buyer@example.com"
+      ]
+    ],
+    "expected": {
+      "recipient": "buyer@example.com",
+      "route": "extract"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015MailboxRejected",
+    "fn": "validateRequestInput",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": null,
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "from": {
+          "value": [
+            {
+              "address": "buyer@example.com"
+            },
+            {
+              "address": "second@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "buyer@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_recipient"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015CleanedEmpty",
+    "fn": "validateRequestInput",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "from": {
+          "value": [
+            {
+              "address": "buyer@example.com"
+            }
+          ]
+        }
+      },
+      [
+        "buyer@example.com"
+      ]
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "empty_input"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015Shapegroq",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "shape_valid": true,
+      "extraction": {
+        "request_type": "order_update",
+        "order_numbers": [
+          "1001",
+          "1001"
+        ],
+        "reason": ""
+      },
+      "source": {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        },
+        "extraction_provider": "groq"
+      }
+    },
+    "absent": []
+  },
+  {
+    "id": "T015Normalizegroq",
+    "fn": "resolveExtractedRequest",
+    "args": [
+      {
+        "source": {
+          "message_id": "source",
+          "thread_id": "thread",
+          "subject": "Status",
+          "recipient": "buyer@example.com",
+          "order_number": "1001",
+          "cleaned_question": "Where is order 1001?",
+          "order": {
+            "order_number": "1001",
+            "customer_email": "buyer@example.com",
+            "tracking_number": "TRK1001"
+          },
+          "extraction_provider": "groq"
+        },
+        "shape_valid": true,
+        "extraction": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": ""
+        }
+      }
+    ],
+    "expected": {
+      "route": "lookup",
+      "order_numbers": [
+        "1001"
+      ],
+      "order_number": "1001",
+      "extraction_provider": "groq"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015Shapeopenrouter",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": ""
+        }
+      },
+      "openrouter"
+    ],
+    "expected": {
+      "shape_valid": true,
+      "extraction": {
+        "request_type": "order_update",
+        "order_numbers": [
+          "1001",
+          "1001"
+        ],
+        "reason": ""
+      },
+      "source": {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        },
+        "extraction_provider": "openrouter"
+      }
+    },
+    "absent": []
+  },
+  {
+    "id": "T015Normalizeopenrouter",
+    "fn": "resolveExtractedRequest",
+    "args": [
+      {
+        "source": {
+          "message_id": "source",
+          "thread_id": "thread",
+          "subject": "Status",
+          "recipient": "buyer@example.com",
+          "order_number": "1001",
+          "cleaned_question": "Where is order 1001?",
+          "order": {
+            "order_number": "1001",
+            "customer_email": "buyer@example.com",
+            "tracking_number": "TRK1001"
+          },
+          "extraction_provider": "openrouter"
+        },
+        "shape_valid": true,
+        "extraction": {
+          "request_type": "order_update",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": ""
+        }
+      }
+    ],
+    "expected": {
+      "route": "lookup",
+      "order_numbers": [
+        "1001"
+      ],
+      "order_number": "1001",
+      "extraction_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015ShapeNull",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      null,
+      "groq"
+    ],
+    "expected": {
+      "shape_valid": false,
+      "extraction": null
+    },
+    "absent": []
+  },
+  {
+    "id": "T015ShapeMissing",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {},
+      "groq"
+    ],
+    "expected": {
+      "shape_valid": false,
+      "extraction": null
+    },
+    "absent": []
+  },
+  {
+    "id": "T015ShapeArray",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "output": []
+      },
+      "groq"
+    ],
+    "expected": {
+      "shape_valid": false,
+      "extraction": null
+    },
+    "absent": []
+  },
+  {
+    "id": "T015ShapeBadNumbers",
+    "fn": "validateExtractionShape",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {
+        "output": {
+          "request_type": "order_update",
+          "order_numbers": [
+            1
+          ],
+          "reason": ""
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "shape_valid": false,
+      "extraction": null
+    },
+    "absent": []
+  },
+  {
+    "id": "T015InvalidBusiness",
+    "fn": "resolveExtractedRequest",
+    "args": [
+      {
+        "source": {
+          "message_id": "s",
+          "extraction_provider": "openrouter"
+        },
+        "shape_valid": false,
+        "extraction": null
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_extraction",
+      "message_id": "s"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "T015LookupNull",
+    "fn": "validateLookupResult",
+    "args": [
+      null,
+      "1001"
+    ],
+    "throws": "invalid_lookup_contract"
+  },
+  {
+    "id": "T015LookupMissing",
+    "fn": "validateLookupResult",
+    "args": [
+      {},
+      "1001"
+    ],
+    "throws": "invalid_lookup_contract"
+  },
+  {
+    "id": "T015LookupArray",
+    "fn": "validateLookupResult",
+    "args": [
+      [],
+      "1001"
+    ],
+    "throws": "invalid_lookup_contract"
+  },
+  {
+    "id": "T015LookupUnknown",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "unexpected",
+        "order": null
+      },
+      "1001"
+    ],
+    "throws": "invalid_lookup_contract"
+  },
+  {
+    "id": "T015LookupMissingOrder",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "not_found"
+      },
+      "1001"
+    ],
+    "throws": "lookup_exposed_unverified_facts"
+  },
+  {
+    "id": "T015LookupLeakedFacts",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "duplicate",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "1001"
+    ],
+    "throws": "lookup_exposed_unverified_facts"
+  },
+  {
+    "id": "T015LookupMissingFound",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "found",
+        "order": null
+      },
+      "1001"
+    ],
+    "throws": "invalid_found_contract"
+  },
+  {
+    "id": "T015LookupWrongNumber",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1002",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "1001"
+    ],
+    "throws": "invalid_found_contract"
+  },
+  {
+    "id": "T015LookupBadEmail",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": null,
+          "tracking_number": "TRK1001"
+        }
+      },
+      "1001"
+    ],
+    "throws": "invalid_found_contract"
+  },
+  {
+    "id": "T015LookupFound",
+    "fn": "validateLookupResult",
+    "args": [
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "1001"
+    ],
+    "expected": {
+      "lookup_status": "found",
+      "order": {
+        "order_number": "1001",
+        "customer_email": "buyer@example.com",
+        "tracking_number": "TRK1001"
+      }
+    },
+    "absent": []
+  },
+  {
+    "id": "T015Resolvenot_found",
+    "fn": "resolveOrderRequest",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?"
+      },
+      {
+        "lookup_status": "not_found",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "unknown",
+      "reason": "",
+      "message_id": "source",
+      "thread_id": "thread"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "T015Resolveduplicate",
+    "fn": "resolveOrderRequest",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?"
+      },
+      {
+        "lookup_status": "duplicate",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "duplicate_order",
+      "message_id": "source",
+      "thread_id": "thread"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "T015Resolveinvalid_data",
+    "fn": "resolveOrderRequest",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?"
+      },
+      {
+        "lookup_status": "invalid_data",
+        "order": null
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "invalid_order_data",
+      "message_id": "source",
+      "thread_id": "thread"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "T015ResolveMismatch",
+    "fn": "resolveOrderRequest",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?"
+      },
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "other@example.com",
+          "tracking_number": "TRK1001"
+        }
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "sender_mismatch"
+    },
+    "absent": [
+      "order"
+    ]
+  },
+  {
+    "id": "T015ResolveOwned",
+    "fn": "resolveOrderRequest",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?"
+      },
+      {
+        "lookup_status": "found",
+        "order": {
+          "order_number": "1001",
+          "customer_email": " BUYER@EXAMPLE.COM ",
+          "tracking_number": "TRK1001"
+        }
+      }
+    ],
+    "expected": {
+      "route": "draft",
+      "order": {
+        "order_number": "1001",
+        "customer_email": " BUYER@EXAMPLE.COM ",
+        "tracking_number": "TRK1001"
+      }
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftNull",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      null,
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "empty_reply"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftObject",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      {},
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "empty_reply"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftNumber",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      123,
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "empty_reply"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftEmpty",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "empty_reply"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftWhitespace",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      " \n ",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "empty_reply"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftMissingTracking",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "Your order shipped.",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "missing_tracking"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftUrl",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "TRK1001 https://example.com",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "url_detected"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftBoth",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      "See www.example.com",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [
+        "missing_tracking",
+        "url_detected"
+      ],
+      "route": "review",
+      "reason": "draft_check_failed",
+      "reply_body": null,
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftPassed",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": "TRK1001"
+        }
+      },
+      " TRK1001 shipped. ",
+      "openrouter"
+    ],
+    "expected": {
+      "failed_checks": [],
+      "route": "save",
+      "reason": "",
+      "reply_body": "TRK1001 shipped.",
+      "drafting_provider": "openrouter"
+    },
+    "absent": []
+  },
+  {
+    "id": "T015DraftNoTrackingRequired",
+    "fn": "checkGeneratedReply",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Status",
+        "recipient": "buyer@example.com",
+        "order_number": "1001",
+        "cleaned_question": "Where is order 1001?",
+        "order": {
+          "order_number": "1001",
+          "customer_email": "buyer@example.com",
+          "tracking_number": null
+        }
+      },
+      "Processing. Dispatch date unknown.",
+      "groq"
+    ],
+    "expected": {
+      "failed_checks": [],
+      "route": "save"
+    },
+    "absent": []
+  }
+]

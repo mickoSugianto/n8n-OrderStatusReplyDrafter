@@ -1,0 +1,140 @@
+{
+  "verifiedAt": "2026-10-19 Asia/Jakarta",
+  "local": {
+    "logicPassed": 246,
+    "logicFailed": 0,
+    "validatorCases": 78,
+    "directPolicyCases": 168,
+    "sourceAndStaticAuditsPassed": 3,
+    "portableCopy": true,
+    "sourceMismatchNegativeControl": "failed nonzero as expected"
+  },
+  "modelEvaluation": {
+    "cases": 8,
+    "extractionCases": 5,
+    "draftingCases": 3,
+    "passed": 8,
+    "alignedCaseIds": true,
+    "representative": "One real extraction call with trigger-only pins; native outputs verified on first row.",
+    "nativeBatch": "Remaining seven cases ran sequentially from native editor; no pins; native output recording and case-ID result alignment verified.",
+    "metricDashboard": "Optional and unverified; deterministic light-output scores/pass/error are available.",
+    "provider": "groq",
+    "model": "qwen/qwen3.8-27b",
+    "calls": 8,
+    "inputTokens": 3516,
+    "outputTokens": 376,
+    "totalTokens": 3892,
+    "billedAmount": null,
+    "casesSummary": [
+      {
+        "caseId": "E01Ordinary",
+        "stage": "extraction",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "schema": 1,
+          "requestType": 1,
+          "orderNumbers": 1
+        }
+      },
+      {
+        "caseId": "E02Missing",
+        "stage": "extraction",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "schema": 1,
+          "requestType": 1,
+          "orderNumbers": 1
+        }
+      },
+      {
+        "caseId": "E03Refund",
+        "stage": "extraction",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "schema": 1,
+          "requestType": 1,
+          "orderNumbers": 1
+        }
+      },
+      {
+        "caseId": "E04Multiple",
+        "stage": "extraction",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "schema": 1,
+          "requestType": 1,
+          "orderNumbers": 1
+        }
+      },
+      {
+        "caseId": "E05Override",
+        "stage": "extraction",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "schema": 1,
+          "requestType": 1,
+          "orderNumbers": 1
+        }
+      },
+      {
+        "caseId": "D01Shipped",
+        "stage": "drafting",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "nonempty": 1,
+          "status": 1,
+          "tracking": 1,
+          "estimate": 1,
+          "noUnexpectedIsoDate": 1,
+          "timing": 1,
+          "deliveredTiming": 1,
+          "noUrl": 1
+        }
+      },
+      {
+        "caseId": "D02Processing",
+        "stage": "drafting",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "nonempty": 1,
+          "status": 1,
+          "tracking": 1,
+          "estimate": 1,
+          "noUnexpectedIsoDate": 1,
+          "timing": 1,
+          "deliveredTiming": 1,
+          "noUrl": 1
+        }
+      },
+      {
+        "caseId": "D03Delivered",
+        "stage": "drafting",
+        "pass": true,
+        "error": "",
+        "metrics": {
+          "nonempty": 1,
+          "status": 1,
+          "tracking": 1,
+          "estimate": 1,
+          "noUnexpectedIsoDate": 1,
+          "timing": 1,
+          "deliveredTiming": 1,
+          "noUrl": 1
+        }
+      }
+    ]
+  },
+  "scope": "Shared policy functions and model stages only. Source-environment results are historical; not destination runtime validation.",
+  "limitations": [
+    "Offline source snapshots are not continuous live linkage.",
+    "Model constraint checks do not replace human review.",
+    "No forced provider-outage or destination-import claim."
+  ]
+}

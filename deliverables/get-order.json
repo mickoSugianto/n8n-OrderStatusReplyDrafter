@@ -1,0 +1,109 @@
+{
+  "name": "GetOrder",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "order_number"
+            }
+          ]
+        }
+      },
+      "id": "5b445d8e-7224-4513-8178-7da629c97260",
+      "name": "ReceiveOrderNumber",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<SPREADSHEET_ID>"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "<ORDERS_TAB_ID>"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A:F"
+            }
+          },
+          "outputFormatting": {
+            "values": {
+              "general": "UNFORMATTED_VALUE",
+              "date": "SERIAL_NUMBER"
+            }
+          },
+          "returnFirstMatch": false
+        }
+      },
+      "id": "84b4fe64-0f2a-4ad4-94d5-8a07d9b478e8",
+      "name": "ReadAllOrders",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true,
+      "notes": "Read all rows to retain duplicates and normalize outer whitespace before exact string comparison. UNFORMATTED_VALUE / SERIAL_NUMBER preserves invalid numeric types. Empty output is handled explicitly by the matched-row array."
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (() => { function validateOrder(request, rows) {\n  if (!Array.isArray(rows)) throw new Error('Expected matched rows array');\n  if (rows.length === 0) return { lookup_status: 'not_found', order: null };\n  if (rows.length > 1) return { lookup_status: 'duplicate', order: null };\n  const row = rows[0] ?? {};\n  const invalid_fields = [];\n  const order = {};\n  const text = key => typeof row[key] === 'string' ? row[key].trim() : null;\n  const fail = key => invalid_fields.push(key);\n  order.order_number = text('order_number');\n  if (!order.order_number || !/^\\d+$/.test(order.order_number) || order.order_number !== request) fail('order_number');\n  order.customer_email = text('customer_email')?.toLowerCase() ?? null;\n  // One bare mailbox: dot-atom local part and DNS-style domain labels.\n  const email = order.customer_email;\n  if (!email || email.length > 254 || !/^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(email) || email.split('@')[0].length > 64 || email.split('@')[1].split('.').some(label => label.length > 63)) fail('customer_email');\n  order.status = text('status')?.toLowerCase() ?? null;\n  if (!['processing', 'shipped', 'delivered'].includes(order.status)) fail('status');\n  order.item = text('item');\n  if (!order.item) fail('item');\n  for (const key of ['tracking_number', 'estimated_delivery']) {\n    if (row[key] == null) order[key] = null;\n    else if (typeof row[key] !== 'string') { order[key] = null; fail(key); }\n    else order[key] = row[key].trim() || null;\n  }\n  if (order.estimated_delivery) {\n    const value = order.estimated_delivery;\n    const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);\n    if (!match) fail('estimated_delivery');\n    else {\n      const year = Number(match[1]);\n      const month = Number(match[2]);\n      const day = Number(match[3]);\n      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);\n      const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];\n      if (year < 1 || month < 1 || month > 12 || day < 1 || day > days[month - 1]) fail('estimated_delivery');\n    }\n  }\n  return invalid_fields.length\n    ? { lookup_status: 'invalid_data', order: null, reason: 'invalid_order_data', invalid_fields }\n    : { lookup_status: 'found', order };\n}\n; const request = $('ReceiveOrderNumber').first().json.order_number; const rows = $('ReadAllOrders').all().map(item => item.json).filter(row => typeof row.order_number === 'string' && row.order_number.trim() === request); return validateOrder(request, rows); })() }}",
+        "options": {}
+      },
+      "id": "f382b773-2932-4b53-99a8-6793a0d95ace",
+      "name": "ReturnGetOrderContract",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ],
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "ReceiveOrderNumber": {
+      "main": [
+        [
+          {
+            "node": "ReadAllOrders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadAllOrders": {
+      "main": [
+        [
+          {
+            "node": "ReturnGetOrderContract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "active": false
+}

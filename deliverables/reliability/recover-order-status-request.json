@@ -1,0 +1,143 @@
+{
+  "name": "RecoverOrderStatusRequest",
+  "nodes": [
+    {
+      "id": "5de2347e-e2fa-4cfe-96e8-f1405da90a6c",
+      "name": "StartRecovery",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f04a207c-5c5c-4448-a6eb-e6355aee507c",
+      "name": "SelectUnresolvedRequest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        320,
+        0
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\"sourceMessageId\":\"\",\"expectedOwnerToken\":\"\",\"writesSettled\":false,\"note\":\"\",\"acceptChangedVersion\":false,\"inspectedDraftId\":\"\"} }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6807d7e8-2ae2-46b0-bf2e-1def235a93aa",
+      "name": "RecoverThroughMain",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        640,
+        0
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "<MAIN_WORKFLOW_ID>"
+        },
+        "mode": "each",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "request": "={{ $('SelectUnresolvedRequest').item.json }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "request",
+              "displayName": "request",
+              "type": "object",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "8dc6ad47-28f9-4bd4-b0c0-7e0db35c530c",
+      "name": "ReturnRecoveryOutcome",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ $('RecoverThroughMain').item.json }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "fc465c94-8606-4364-bba0-bcb1299476fd",
+      "name": "RecoveryGuide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -144
+      ],
+      "parameters": {
+        "content": "## 01 — Recover one inspected source\nSelect a ledger record; confirm prior execution stopped and outstanding writes settled. No automatic reset.",
+        "width": 1440,
+        "height": 320,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "StartRecovery": {
+      "main": [
+        [
+          {
+            "node": "SelectUnresolvedRequest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SelectUnresolvedRequest": {
+      "main": [
+        [
+          {
+            "node": "RecoverThroughMain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RecoverThroughMain": {
+      "main": [
+        [
+          {
+            "node": "ReturnRecoveryOutcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

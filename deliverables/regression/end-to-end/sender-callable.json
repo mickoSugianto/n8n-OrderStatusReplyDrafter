@@ -1,0 +1,361 @@
+{
+  "name": "Sender",
+  "active": false,
+  "nodes": [
+    {
+      "id": "t016-node-0",
+      "name": "When clicking ‘Execute workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "t016-node-1",
+      "name": "Send an Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        96
+      ],
+      "parameters": {
+        "fromEmail": "<CUSTOMER_EMAIL>",
+        "toEmail": "<RECEIVER_EMAIL>",
+        "subject": "={{ $('ValidateFixture').item.json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $('ValidateFixture').item.json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "t016-node-2",
+      "name": "SendToSelf",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        336
+      ],
+      "parameters": {
+        "sendTo": "<RECEIVER_EMAIL>",
+        "subject": "={{ $('ValidateFixture').item.json.subject }}",
+        "emailType": "text",
+        "message": "={{ $('ValidateFixture').item.json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "t016-node-3",
+      "name": "ReceiveFixture",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "subject"
+            },
+            {
+              "name": "body"
+            },
+            {
+              "name": "senderMode"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t016-node-4",
+      "name": "ManualFixture",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        80
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\"subject\":\"OSRD SMOKE manual example\",\"body\":\"Where is order 1001?\",\"senderMode\":\"customer\"}",
+        "options": {}
+      },
+      "notes": "Manual execution now sends one customer fixture. Edit senderMode to self explicitly; never fans out to both."
+    },
+    {
+      "id": "t016-node-5",
+      "name": "FixtureInput",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        480,
+        240
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "t016-node-6",
+      "name": "ValidateFixture",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (() => { const v=$('FixtureInput').item.json; if (!['customer','self'].includes(v.senderMode)) return {...v,senderMode:'invalid',error:'Invalid senderMode; no message sent'}; if(typeof v.subject!=='string'||!/^OSRD SMOKE [A-Za-z ]+$/.test(v.subject)||v.subject.length>180) return {...v,senderMode:'invalid',error:'Expected alphabetic OSRD SMOKE subject'}; if(typeof v.body!=='string'||!v.body.trim()||v.body.length>4000) return {...v,senderMode:'invalid',error:'Expected nonempty controlled fixture body'}; return {subject:v.subject,body:v.body,senderMode:v.senderMode}; })() }}",
+        "options": {}
+      },
+      "notes": "Fixed authenticated accounts and fixed destination are configured on send nodes. Reject invalid input before either send."
+    },
+    {
+      "id": "t016-node-7",
+      "name": "SelectSender",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('ValidateFixture').item.json.senderMode }}",
+                    "rightValue": "customer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "customer"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('ValidateFixture').item.json.senderMode }}",
+                    "rightValue": "self",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "self"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "allMatchingOutputs": false
+        }
+      }
+    },
+    {
+      "id": "t016-node-8",
+      "name": "RejectSender",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        608
+      ],
+      "parameters": {
+        "errorMessage": "={{ $('ValidateFixture').item.json.error || 'Invalid Sender route; no send attempted' }}"
+      }
+    },
+    {
+      "id": "t016-node-9",
+      "name": "CustomerDelivery",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1440,
+        96
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({senderMode:'customer',subject:$('ValidateFixture').item.json.subject,accepted:true,arrivalConfirmed:false,delivery:$('Send an Email').item.json}) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t016-node-10",
+      "name": "SelfDelivery",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1440,
+        336
+      ],
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ ({senderMode:'self',subject:$('ValidateFixture').item.json.subject,accepted:true,arrivalConfirmed:false,delivery:$('SendToSelf').item.json}) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Send an Email": {
+      "main": [
+        [
+          {
+            "node": "CustomerDelivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SendToSelf": {
+      "main": [
+        [
+          {
+            "node": "SelfDelivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "ManualFixture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ManualFixture": {
+      "main": [
+        [
+          {
+            "node": "FixtureInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReceiveFixture": {
+      "main": [
+        [
+          {
+            "node": "FixtureInput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FixtureInput": {
+      "main": [
+        [
+          {
+            "node": "ValidateFixture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ValidateFixture": {
+      "main": [
+        [
+          {
+            "node": "SelectSender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SelectSender": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SendToSelf",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RejectSender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "nodeGroups": [
+    {
+      "id": "t016-group-0",
+      "name": "DeliverOneFixture",
+      "description": "Validate one controlled fixture, choose one authenticated route and return delivery identifiers.",
+      "nodeIds": [
+        "t016-node-1",
+        "t016-node-2",
+        "t016-node-5",
+        "t016-node-6",
+        "t016-node-7",
+        "t016-node-8",
+        "t016-node-9",
+        "t016-node-10"
+      ]
+    }
+  ]
+}

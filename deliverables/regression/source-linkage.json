@@ -1,0 +1,100 @@
+{
+  "capturedAt": "2026-10-19",
+  "mainSourceVersion": "source-ref-0cf0190eb134c3ce",
+  "childSourceVersion": "source-ref-75e4d3bd508fe10a",
+  "expressions": [
+    {
+      "module": "main-policy",
+      "function": "prepareSourceContext",
+      "node": "PrepareSourceContext",
+      "expression": "={{ (function prepareSourceContext(message) {\n  const source = {\n    message_id: message.id, thread_id: message.threadId,\n    subject: typeof message.subject === 'string' ? message.subject : '',\n    original_body: typeof message.text === 'string' ? message.text : '',\n    store_name: 'Sample Shop', sign_off: 'Sample Shop Support',\n    recipient: null, route: 'extract', reason: '',\n  };\n  if (typeof source.message_id !== 'string' || !source.message_id ||\n      typeof source.thread_id !== 'string' || !source.thread_id) throw new Error('missing_source_context');\n  return source;\n})($('ReceivePendingDemo').item.json) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "modelError",
+      "node": "ClassifyExtractGroqError",
+      "expression": "={{ (function modelError(source, failure, stage, provider) {\n  const error = failure.error;\n  const message = typeof error === 'string' ? error : error?.message || failure.message || '';\n  const details = [message, error?.description, failure.description, error?.cause?.message].filter(Boolean).join(' ');\n  const parser = /pars(?:e|ing|er)|invalid json|schema|format instructions|failed to extract|output.*(?:format|schema)/i.test(details);\n  const status = Number(error?.httpCode || error?.status || error?.statusCode || failure.statusCode);\n  const operational = !parser && (/model.*(?:does not exist|not found|unavailable|decommissioned)/i.test(details) || [401,403,408,429,500,502,503,504].includes(status) ||\n    /\\b(?:401|403|408|429|500|502|503|504)\\b|rate.?limit|too many requests|timeout|timed out|econnreset|econnrefused|enotfound|fetch failed|connection error|service unavailable|bad gateway|gateway timeout|invalid api key|unauthorized|authorization failed|the resource you are requesting could not be found/i.test(details));\n  return {...source, route: parser ? 'review' : operational && provider === 'groq' ? 'fallback' : 'fatal',\n    reason: parser ? 'invalid_extraction' : operational ? 'model_provider_failure' : 'unexpected_model_error',\n    failed_stage: stage, failed_provider: provider, provider_error: details || 'Unknown model error'};\n})($('ValidateRequestInput').item.json, $('ExtractRequestGroq').item.json, \"extract\", \"groq\") }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "modelError",
+      "node": "ClassifyExtractOpenRouterError",
+      "expression": "={{ (function modelError(source, failure, stage, provider) {\n  const error = failure.error;\n  const message = typeof error === 'string' ? error : error?.message || failure.message || '';\n  const details = [message, error?.description, failure.description, error?.cause?.message].filter(Boolean).join(' ');\n  const parser = /pars(?:e|ing|er)|invalid json|schema|format instructions|failed to extract|output.*(?:format|schema)/i.test(details);\n  const status = Number(error?.httpCode || error?.status || error?.statusCode || failure.statusCode);\n  const operational = !parser && (/model.*(?:does not exist|not found|unavailable|decommissioned)/i.test(details) || [401,403,408,429,500,502,503,504].includes(status) ||\n    /\\b(?:401|403|408|429|500|502|503|504)\\b|rate.?limit|too many requests|timeout|timed out|econnreset|econnrefused|enotfound|fetch failed|connection error|service unavailable|bad gateway|gateway timeout|invalid api key|unauthorized|authorization failed|the resource you are requesting could not be found/i.test(details));\n  return {...source, route: parser ? 'review' : operational && provider === 'groq' ? 'fallback' : 'fatal',\n    reason: parser ? 'invalid_extraction' : operational ? 'model_provider_failure' : 'unexpected_model_error',\n    failed_stage: stage, failed_provider: provider, provider_error: details || 'Unknown model error'};\n})($('ValidateRequestInput').item.json, $('ExtractRequestOpenRouter').item.json, \"extract\", \"openrouter\") }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "resolveOrderRequest",
+      "node": "ResolveOrderRequest",
+      "expression": "={{ (function resolveOrderRequest(source, result) {\n  const {lookup_status, order} = result;\n  if (lookup_status === 'not_found') return {...source, route: 'unknown', reason: ''};\n  if (lookup_status === 'duplicate' || lookup_status === 'invalid_data') return {...source, route: 'review',\n    reason: lookup_status === 'duplicate' ? 'duplicate_order' : 'invalid_order_data', invalid_fields: result.invalid_fields || []};\n  if (order.customer_email.trim().toLowerCase() !== source.recipient) return {...source, route: 'review', reason: 'sender_mismatch'};\n  return {...source, order, route: 'draft', reason: ''};\n})($('ValidatedRequest').item.json, $('ValidateLookupResult').item.json) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "modelError",
+      "node": "ClassifyDraftGroqError",
+      "expression": "={{ (function modelError(source, failure, stage, provider) {\n  const error = failure.error;\n  const message = typeof error === 'string' ? error : error?.message || failure.message || '';\n  const details = [message, error?.description, failure.description, error?.cause?.message].filter(Boolean).join(' ');\n  const parser = /pars(?:e|ing|er)|invalid json|schema|format instructions|failed to extract|output.*(?:format|schema)/i.test(details);\n  const status = Number(error?.httpCode || error?.status || error?.statusCode || failure.statusCode);\n  const operational = !parser && (/model.*(?:does not exist|not found|unavailable|decommissioned)/i.test(details) || [401,403,408,429,500,502,503,504].includes(status) ||\n    /\\b(?:401|403|408|429|500|502|503|504)\\b|rate.?limit|too many requests|timeout|timed out|econnreset|econnrefused|enotfound|fetch failed|connection error|service unavailable|bad gateway|gateway timeout|invalid api key|unauthorized|authorization failed|the resource you are requesting could not be found/i.test(details));\n  return {...source, route: parser ? 'review' : operational && provider === 'groq' ? 'fallback' : 'fatal',\n    reason: parser ? 'invalid_extraction' : operational ? 'model_provider_failure' : 'unexpected_model_error',\n    failed_stage: stage, failed_provider: provider, provider_error: details || 'Unknown model error'};\n})($('ResolveOrderRequest').item.json, $('WriteVerifiedReplyGroq').item.json, \"draft\", \"groq\") }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "modelError",
+      "node": "ClassifyDraftOpenRouterError",
+      "expression": "={{ (function modelError(source, failure, stage, provider) {\n  const error = failure.error;\n  const message = typeof error === 'string' ? error : error?.message || failure.message || '';\n  const details = [message, error?.description, failure.description, error?.cause?.message].filter(Boolean).join(' ');\n  const parser = /pars(?:e|ing|er)|invalid json|schema|format instructions|failed to extract|output.*(?:format|schema)/i.test(details);\n  const status = Number(error?.httpCode || error?.status || error?.statusCode || failure.statusCode);\n  const operational = !parser && (/model.*(?:does not exist|not found|unavailable|decommissioned)/i.test(details) || [401,403,408,429,500,502,503,504].includes(status) ||\n    /\\b(?:401|403|408|429|500|502|503|504)\\b|rate.?limit|too many requests|timeout|timed out|econnreset|econnrefused|enotfound|fetch failed|connection error|service unavailable|bad gateway|gateway timeout|invalid api key|unauthorized|authorization failed|the resource you are requesting could not be found/i.test(details));\n  return {...source, route: parser ? 'review' : operational && provider === 'groq' ? 'fallback' : 'fatal',\n    reason: parser ? 'invalid_extraction' : operational ? 'model_provider_failure' : 'unexpected_model_error',\n    failed_stage: stage, failed_provider: provider, provider_error: details || 'Unknown model error'};\n})($('ResolveOrderRequest').item.json, $('WriteVerifiedReplyOpenRouter').item.json, \"draft\", \"openrouter\") }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "saveGate",
+      "node": "RecheckAllowedRecipient",
+      "expression": "={{ (function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('SharedReplyContext').item.json, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "confirmDraft",
+      "node": "ConfirmSavedDraft",
+      "expression": "={{ (function confirmDraft(source, saved, readback) {\n  if (!saved.id || !saved.message?.id || saved.message.threadId !== source.thread_id ||\n      readback.id !== saved.id || readback.messageId !== saved.message.id || readback.threadId !== source.thread_id ||\n      readback.subject !== source.subject || readback.text?.trim() !== source.reply_body.trim() ||\n      readback.to?.value?.length !== 1 || readback.to.value[0].address?.trim().toLowerCase() !== source.recipient) {\n    return {...source, route:'fatal', reason:'draft_confirmation_failed_inspect_before_retry', draft_confirmed:false};\n  }\n  return {...source, draft_id: saved.id, draft_message_id: saved.message.id, draft_confirmed: true};\n})($('RecheckAllowedRecipient').item.json, $('SaveReviewDraft').item.json, $('ReadSavedDraft').item.json) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "cleanCustomerQuestion",
+      "node": "CleanCustomerQuestion",
+      "expression": "={{ (function cleanCustomerQuestion(source) {\n  return {...source, cleaned_question: source.original_body.split(/\\r?\\n/).filter(line => !/^\\s*>/.test(line)).join('\\n').trim()};\n})($('PrepareSourceContext').item.json) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "validateRequestInput",
+      "node": "ValidateRequestInput",
+      "expression": "={{ (function validateRequestInput(source, message, allowlist) {\n  const addresses = message.from?.value;\n  const candidate = Array.isArray(addresses) && addresses.length === 1 && typeof addresses[0].address === 'string'\n    ? addresses[0].address.trim().toLowerCase() : '';\n  const valid = candidate.length <= 254 && /^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(candidate)\n    && candidate.split('@')[0].length <= 64 && candidate.split('@')[1].split('.').every(label => label.length <= 63);\n  if (!valid || !allowlist.includes(candidate)) return {...source, route: 'review', reason: 'invalid_recipient'};\n  source.recipient = candidate;\n  if (!source.cleaned_question) return {...source, route: 'review', reason: 'empty_input'};\n  return source;\n})($('CleanCustomerQuestion').item.json, $('ReceivePendingDemo').item.json, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "validateExtractionShape",
+      "node": "ValidateExtractionShape",
+      "expression": "={{ (function validateExtractionShape(source, response, provider) {\n  const value = response?.output;\n  const invalid = !value || typeof value !== 'object' || Array.isArray(value) ||\n    !['order_update', 'manual_review'].includes(value.request_type) ||\n    !Array.isArray(value.order_numbers) || typeof value.reason !== 'string' ||\n    !value.order_numbers.every(number => typeof number === 'string' && /^\\d+$/.test(number));\n  const context = {...source, extraction_provider: provider};\n  return {source: context, extraction: invalid ? null : value, shape_valid: !invalid};\n})($('ExtractionResult').item.json.source, $('ExtractionResult').item.json.result, $('ExtractionResult').item.json.provider) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "resolveExtractedRequest",
+      "node": "ResolveExtractedRequest",
+      "expression": "={{ (function resolveExtractedRequest(checked) {\n  const context = checked.source;\n  if (!checked.shape_valid) return {...context, route: 'review', reason: 'invalid_extraction'};\n  const value = checked.extraction;\n  const order_numbers = [...new Set(value.order_numbers)];\n  if (value.request_type !== 'order_update') return {...context, route: 'review', reason: value.reason || 'unsupported_request'};\n  if (order_numbers.length > 1) return {...context, route: 'review', reason: 'multiple_orders'};\n  return {...context, order_numbers, order_number: order_numbers[0] || null,\n    route: order_numbers.length ? 'lookup' : 'missing', reason: value.reason};\n})($('ValidateExtractionShape').item.json) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "validateLookupResult",
+      "node": "ValidateLookupResult",
+      "expression": "={{ (function validateLookupResult(result, requestedNumber) {\n  if (!result || typeof result !== 'object' || Array.isArray(result)) throw new Error('invalid_lookup_contract');\n  const {lookup_status, order} = result;\n  if (!['found', 'not_found', 'duplicate', 'invalid_data'].includes(lookup_status)) throw new Error('invalid_lookup_contract');\n  if (lookup_status !== 'found' && order !== null) throw new Error('lookup_exposed_unverified_facts');\n  if (lookup_status === 'found' && (!order || typeof order !== 'object' || Array.isArray(order) ||\n      order.order_number !== requestedNumber || typeof order.customer_email !== 'string')) throw new Error('invalid_found_contract');\n  return result;\n})($('GetOrderDeterministically').item.json, $('ValidatedRequest').item.json.order_number) }}"
+    },
+    {
+      "module": "main-policy",
+      "function": "checkGeneratedReply",
+      "node": "CheckGeneratedReply",
+      "expression": "={{ (function checkGeneratedReply(source, text, provider) {\n  const failed_checks = [];\n  const hasContent = typeof text === 'string' && text.trim().length > 0;\n  if (!hasContent) failed_checks.push('empty_reply');\n  // Tracking and URL checks apply only to nonempty string content.\n  if (hasContent && source.order.tracking_number && !text.includes(source.order.tracking_number)) failed_checks.push('missing_tracking');\n  if (hasContent && /http|www\\./i.test(text)) failed_checks.push('url_detected');\n  const valid = failed_checks.length === 0;\n  return {...source, drafting_provider: provider, reply_body: valid ? text.trim() : null,\n    route: valid ? 'save' : 'review', reason: valid ? '' : 'draft_check_failed', failed_checks};\n})($('GeneratedReply').item.json.source, $('GeneratedReply').item.json.text, $('GeneratedReply').item.json.provider) }}"
+    },
+    {
+      "module": "validate-order",
+      "function": "validateOrder",
+      "node": "ReturnGetOrderContract",
+      "expression": "={{ (() => { function validateOrder(request, rows) {\n  if (!Array.isArray(rows)) throw new Error('Expected matched rows array');\n  if (rows.length === 0) return { lookup_status: 'not_found', order: null };\n  if (rows.length > 1) return { lookup_status: 'duplicate', order: null };\n  const row = rows[0] ?? {};\n  const invalid_fields = [];\n  const order = {};\n  const text = key => typeof row[key] === 'string' ? row[key].trim() : null;\n  const fail = key => invalid_fields.push(key);\n  order.order_number = text('order_number');\n  if (!order.order_number || !/^\\d+$/.test(order.order_number) || order.order_number !== request) fail('order_number');\n  order.customer_email = text('customer_email')?.toLowerCase() ?? null;\n  // One bare mailbox: dot-atom local part and DNS-style domain labels.\n  const email = order.customer_email;\n  if (!email || email.length > 254 || !/^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(email) || email.split('@')[0].length > 64 || email.split('@')[1].split('.').some(label => label.length > 63)) fail('customer_email');\n  order.status = text('status')?.toLowerCase() ?? null;\n  if (!['processing', 'shipped', 'delivered'].includes(order.status)) fail('status');\n  order.item = text('item');\n  if (!order.item) fail('item');\n  for (const key of ['tracking_number', 'estimated_delivery']) {\n    if (row[key] == null) order[key] = null;\n    else if (typeof row[key] !== 'string') { order[key] = null; fail(key); }\n    else order[key] = row[key].trim() || null;\n  }\n  if (order.estimated_delivery) {\n    const value = order.estimated_delivery;\n    const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);\n    if (!match) fail('estimated_delivery');\n    else {\n      const year = Number(match[1]);\n      const month = Number(match[2]);\n      const day = Number(match[3]);\n      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);\n      const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];\n      if (year < 1 || month < 1 || month > 12 || day < 1 || day > days[month - 1]) fail('estimated_delivery');\n    }\n  }\n  return invalid_fields.length\n    ? { lookup_status: 'invalid_data', order: null, reason: 'invalid_order_data', invalid_fields }\n    : { lookup_status: 'found', order };\n}\n; const request = $('ReceiveOrderNumber').first().json.order_number; const rows = $('ReadAllOrders').all().map(item => item.json).filter(row => typeof row.order_number === 'string' && row.order_number.trim() === request); return validateOrder(request, rows); })() }}"
+    }
+  ],
+  "scope": "Actual selected T015 saved function bodies; model definitions remain at the unchanged T014 model-input source. Fresh service readback is a separate development audit.",
+  "modelDefinitionsSha256": "e9fc3cf39ccdcc567a517b14beb2c9a8a22891878bbdd2b80d1979dc1847e719",
+  "modelSourceVersion": "source-ref-a76ccee3b8cda4b2"
+}

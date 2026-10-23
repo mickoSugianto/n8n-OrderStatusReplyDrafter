@@ -1,0 +1,127 @@
+{
+  "date": "2026-10-20",
+  "status": "TECHNICAL_VERIFICATION_PASS",
+  "regression": {
+    "status": "PASS",
+    "sent": 10,
+    "completed": 10,
+    "restored": true,
+    "versionStable": true,
+    "cases": [
+      {
+        "caseId": "S01",
+        "status": "PASS",
+        "assertions": {
+          "passed": 46,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S02",
+        "status": "PASS",
+        "assertions": {
+          "passed": 45,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S03",
+        "status": "PASS",
+        "assertions": {
+          "passed": 46,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S04",
+        "status": "PASS",
+        "assertions": {
+          "passed": 41,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S05",
+        "status": "PASS",
+        "assertions": {
+          "passed": 44,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S06",
+        "status": "PASS",
+        "assertions": {
+          "passed": 28,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S07",
+        "status": "PASS",
+        "assertions": {
+          "passed": 28,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S08",
+        "status": "PASS",
+        "assertions": {
+          "passed": 31,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S09",
+        "status": "PASS",
+        "assertions": {
+          "passed": 28,
+          "failed": []
+        }
+      },
+      {
+        "caseId": "S10",
+        "status": "PASS",
+        "assertions": {
+          "passed": 49,
+          "failed": []
+        }
+      }
+    ]
+  },
+  "sourceEmails": {
+    "reliability": 3,
+    "regression": 10,
+    "total": 13
+  },
+  "customerReplySends": 0,
+  "additionalDemoBatch": false,
+  "proofs": {
+    "actualOverlappingIntake": "PASS",
+    "sameSavedDraftRecovery": "PASS",
+    "reviewLabelRecovery": "PASS",
+    "completedDuplicate": "PASS",
+    "uncertainWriteRefusal": "PASS \u2014 actual Gmail create; simulated returned-ID checkpoint loss",
+    "newMessageSameOrder": true
+  },
+  "checks": {
+    "recoveryLocal": 57,
+    "logicLocal": 246,
+    "audits": 3,
+    "observerLocal": 107,
+    "finalNativePinnedCases": 7
+  },
+  "humanWordingReview": {
+    "status": "APPROVED",
+    "draftsReviewed": 6,
+    "result": "User confirmed all six final regression drafts exist and are usable.",
+    "date": "2026-10-20"
+  },
+  "limitations": [
+    "No universal exactly-once guarantee or autonomous recovery.",
+    "Database ownership cannot fence an already-running Gmail request.",
+    "Destination import and video not tested."
+  ],
+  "evidenceScope": "Recorded controlled source-environment verification; destination import/deployment not tested. Local packaging checks are separate."
+}
