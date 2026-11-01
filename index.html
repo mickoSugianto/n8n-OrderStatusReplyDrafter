@@ -1,0 +1,1822 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Order Status Reply Drafter — Supervised Gmail + Google Sheets Automation
+      in n8n
+    </title>
+    <meta
+      name="description"
+      content="Order-status emails, drafted for you to review and send. A supervised Gmail + Google Sheets automation built in n8n that never auto-sends."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231d1d1f'/%3E%3Cpath d='M6 10.5A2.5 2.5 0 0 1 8.5 8h15a2.5 2.5 0 0 1 2.5 2.5v11a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 6 21.5v-11Z' fill='%230071e3'/%3E%3C/svg%3E"
+    />
+    <link
+      rel="canonical"
+      href="https://mickosugianto.github.io/n8n-OrderStatusReplyDrafter/"
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://mickosugianto.github.io/n8n-OrderStatusReplyDrafter/"
+    />
+    <meta
+      property="og:title"
+      content="Order-status emails, drafted for you to review and send."
+    />
+    <meta
+      property="og:description"
+      content="A Gmail + Google Sheets automation built in n8n. Drafts replies to 'where is my order?' emails from verified order records and never sends on its own."
+    />
+    <meta
+      property="og:image"
+      content="https://mickosugianto.github.io/n8n-OrderStatusReplyDrafter/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Order Status Reply Drafter: customer email to verified order lookup to Gmail draft to human review and send."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Order-status emails, drafted for you to review and send."
+    />
+    <meta
+      name="twitter:description"
+      content="Supervised Gmail + Google Sheets automation built in n8n. Drafts only, never auto-sends. 2-minute demo + verified test results."
+    />
+    <meta
+      name="twitter:image"
+      content="https://mickosugianto.github.io/n8n-OrderStatusReplyDrafter/og-image.png"
+    />
+    <style>
+      :root {
+        --bg: #fff;
+        --alt: #f5f5f7;
+        --ink: #1d1d1f;
+        --mute: #6e6e73;
+        --blue: #0071e3;
+        --link: #0066cc;
+        --ok: #1f7a3a;
+        --okbg: #e8f6ec;
+        --warn: #a34a00;
+        --warnbg: #fff3e3;
+        --r: 28px;
+        --font:
+          -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          "Helvetica Neue", Helvetica, Arial, sans-serif;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 64px;
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+      body {
+        font: 17px/1.47 var(--font);
+        color: var(--ink);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        letter-spacing: -0.011em;
+      }
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      :focus-visible {
+        outline: 3px solid var(--blue);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      code {
+        font: 0.85em var(--mono);
+        background: rgba(127, 127, 127, 0.15);
+        padding: 0.1em 0.4em;
+        border-radius: 6px;
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: #fff;
+        padding: 8px 14px;
+        border-radius: 99px;
+        z-index: 99;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      section {
+        padding: clamp(72px, 11vw, 140px) 0;
+      }
+      .dark {
+        background: #000;
+        color: #f5f5f7;
+      }
+      .dark .mute,
+      .dark p {
+        color: #a1a1a6;
+      }
+      .alt {
+        background: var(--alt);
+      }
+      h1,
+      h2,
+      h3 {
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.06;
+      }
+      h2 {
+        font-size: clamp(2rem, 5.2vw, 3.5rem);
+        text-align: center;
+      }
+      h3 {
+        font-size: 1.3rem;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+      .lead {
+        font-size: clamp(1.1rem, 2vw, 1.4rem);
+        color: var(--mute);
+        text-align: center;
+        max-width: 36em;
+        margin: 18px auto 0;
+        line-height: 1.38;
+      }
+      .mute {
+        color: var(--mute);
+      }
+      /* nav */
+      nav.top {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 50;
+        height: 52px;
+        background: rgba(255, 255, 255, 0.72);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      nav.top .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+        gap: 16px;
+      }
+      .brand {
+        font-weight: 600;
+        color: var(--ink);
+        font-size: 0.95rem;
+        white-space: nowrap;
+      }
+      .links {
+        display: none;
+        gap: 26px;
+      }
+      .links a {
+        color: var(--ink);
+        opacity: 0.72;
+        font-size: 0.8rem;
+        padding: 14px 0;
+      }
+      .links a:hover,
+      .links a[aria-current] {
+        opacity: 1;
+        text-decoration: none;
+      }
+      .links a[aria-current] {
+        box-shadow: inset 0 -2px var(--ink);
+      }
+      @media (min-width: 860px) {
+        .links {
+          display: flex;
+        }
+      }
+      /* buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 24px;
+        border-radius: 99px;
+        border: 0;
+        font: 600 1.05rem var(--font);
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          background 0.2s;
+      }
+      .btn:hover {
+        text-decoration: none;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn-p {
+        background: var(--blue);
+        color: #fff;
+      }
+      .btn-p:hover {
+        background: #0077ed;
+      }
+      .btn-s {
+        min-height: 34px;
+        padding: 0 14px;
+        font-size: 0.8rem;
+      }
+      .more {
+        font-size: 1.15rem;
+      }
+      .more::after {
+        content: " \203A";
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 28px;
+        align-items: center;
+        justify-content: center;
+        margin-top: 32px;
+      }
+      .copy {
+        margin-top: 18px;
+        font-size: 0.88rem;
+        color: var(--mute);
+        text-align: center;
+      }
+      .copy b {
+        font-weight: 500;
+        color: var(--ink);
+        user-select: all;
+      }
+      .copy button {
+        margin-left: 8px;
+        border: 0;
+        background: none;
+        color: var(--link);
+        font: inherit;
+        cursor: pointer;
+        padding: 6px;
+      }
+      /* hero */
+      .hero {
+        padding-top: clamp(112px, 16vw, 168px);
+        text-align: center;
+        padding-bottom: 0;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--ok);
+        background: var(--okbg);
+        border-radius: 99px;
+        padding: 5px 14px;
+        margin-bottom: 22px;
+      }
+      h1 {
+        font-size: clamp(2.7rem, 8.4vw, 6rem);
+        letter-spacing: -0.045em;
+        line-height: 1.02;
+        max-width: 12em;
+        margin: 0 auto;
+      }
+      .hero .lead {
+        max-width: 30em;
+      }
+      .rise {
+        animation: rise 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+      .d1 {
+        animation-delay: 0.1s;
+      }
+      .d2 {
+        animation-delay: 0.25s;
+      }
+      .d3 {
+        animation-delay: 0.4s;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(34px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .vid {
+        position: relative;
+        max-width: 1040px;
+        margin: clamp(40px, 7vw, 72px) auto 0;
+        border-radius: var(--r);
+        overflow: hidden;
+        background: #111;
+        aspect-ratio: 16/9;
+        box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.5);
+      }
+      .vid iframe,
+      .vid img,
+      .poster {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+      .poster {
+        border: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #1d1d1f, #2c2c2e 55%, #0b3a6b);
+        cursor: pointer;
+        color: #fff;
+        font: inherit;
+      }
+      .vid img {
+        object-fit: cover;
+      }
+      .poster::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(transparent 45%, rgba(0, 0, 0, 0.65));
+      }
+      .play {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 84px;
+        height: 84px;
+        margin: -42px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.28);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+        display: grid;
+        place-items: center;
+        transition: transform 0.25s;
+      }
+      .poster:hover .play {
+        transform: scale(1.08);
+      }
+      .play svg {
+        width: 30px;
+        fill: #fff;
+        margin-left: 4px;
+      }
+      .cap {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        bottom: 18px;
+        text-align: left;
+        font-weight: 600;
+        font-size: clamp(0.9rem, 2vw, 1.15rem);
+      }
+      .cap small {
+        display: block;
+        font-weight: 400;
+        opacity: 0.8;
+        font-size: 0.82em;
+      }
+      .meta {
+        max-width: 1040px;
+        margin: 16px auto 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 20px;
+        justify-content: space-between;
+        font-size: 0.88rem;
+        color: var(--mute);
+        padding: 0 6px;
+        text-align: left;
+      }
+      details {
+        max-width: 1040px;
+        margin: 10px auto 0;
+        font-size: 0.9rem;
+        color: var(--mute);
+        text-align: left;
+        padding: 0 6px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--link);
+      }
+      details p {
+        margin-top: 8px;
+        max-width: 48em;
+      }
+      .facts {
+        display: grid;
+        gap: 1px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-top: clamp(56px, 8vw, 96px);
+        border-top: 1px solid #d2d2d7;
+        text-align: left;
+      }
+      .facts div {
+        padding: 22px 24px 26px;
+        font-size: 0.95rem;
+        color: var(--mute);
+      }
+      .facts strong {
+        display: block;
+        color: var(--ink);
+        font-size: 1.15rem;
+        letter-spacing: -0.02em;
+      }
+      /* flow */
+      .flow {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 14px;
+        margin-top: 56px;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      }
+      .flow li {
+        position: relative;
+        background: #1d1d1f;
+        border-radius: 24px;
+        padding: 28px 26px 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .flow .n {
+        font-size: 3rem;
+        font-weight: 700;
+        letter-spacing: -0.05em;
+        line-height: 1;
+        color: #515154;
+      }
+      .flow h3 {
+        color: #f5f5f7;
+      }
+      .flow p {
+        font-size: 0.95rem;
+      }
+      .chip {
+        align-self: flex-start;
+        margin-top: auto;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6cb6ff;
+        background: rgba(0, 113, 227, 0.18);
+        padding: 4px 12px;
+        border-radius: 99px;
+      }
+      .flow li.you {
+        box-shadow: inset 0 0 0 2px #30d158;
+      }
+      .you .n {
+        color: #30d158;
+      }
+      .you .chip {
+        color: #30d158;
+        background: rgba(48, 209, 88, 0.15);
+      }
+      /* simulator */
+      .sim {
+        display: grid;
+        gap: 20px;
+        margin-top: 52px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 820px) {
+        .sim {
+          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+        }
+      }
+      .tabs {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .tabs button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-align: left;
+        border: 0;
+        background: #fff;
+        border-radius: 16px;
+        padding: 14px 18px;
+        font: 500 0.98rem var(--font);
+        color: var(--ink);
+        cursor: pointer;
+        transition:
+          box-shadow 0.2s,
+          background 0.2s;
+      }
+      .tabs button:hover {
+        background: #fafafa;
+      }
+      .tabs button[aria-selected="true"] {
+        box-shadow: 0 0 0 2px var(--blue);
+      }
+      .dot {
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .k-d {
+        background: #30a14e;
+      }
+      .k-f {
+        background: #f08a00;
+      }
+      .k-s {
+        background: #8e8e93;
+      }
+      .panel {
+        background: #fff;
+        border-radius: var(--r);
+        padding: clamp(22px, 4vw, 36px);
+        align-self: start;
+        position: sticky;
+        top: 76px;
+        min-height: 340px;
+      }
+      .mail {
+        background: var(--alt);
+        border-radius: 16px;
+        padding: 14px 18px;
+        font-weight: 500;
+      }
+      .mail small {
+        display: block;
+        color: var(--mute);
+        font-weight: 400;
+      }
+      .res {
+        margin-top: 22px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 99px;
+        padding: 4px 12px;
+        margin-bottom: 10px;
+      }
+      .b-d {
+        background: var(--okbg);
+        color: var(--ok);
+      }
+      .b-f {
+        background: var(--warnbg);
+        color: var(--warn);
+      }
+      .b-s {
+        background: #ececf0;
+        color: #515154;
+      }
+      .draft {
+        margin-top: 16px;
+        border: 1px solid #d2d2d7;
+        border-radius: 14px;
+        padding: 14px 16px;
+        font-size: 0.92rem;
+        white-space: pre-line;
+        box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.2);
+      }
+      .res p {
+        color: var(--mute);
+        margin-top: 6px;
+      }
+      .fine {
+        font-size: 0.82rem;
+        color: var(--mute);
+        margin-top: 18px;
+        text-align: center;
+      }
+      /* bento */
+      .bento {
+        display: grid;
+        gap: 14px;
+        margin-top: 56px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+      .tile {
+        background: var(--alt);
+        border-radius: var(--r);
+        padding: 30px 28px;
+      }
+      .tile h3 {
+        margin-bottom: 8px;
+      }
+      .tile p,
+      .tile li {
+        color: var(--mute);
+        font-size: 0.98rem;
+      }
+      .tile.ai {
+        background: #e8f1fd;
+      }
+      .tile.ai h3 {
+        color: #0a4f9e;
+      }
+      .tile.lim {
+        grid-column: 1/-1;
+        background: var(--warnbg);
+      }
+      .tile.lim h3 {
+        color: var(--warn);
+      }
+      .tile ul {
+        padding-left: 1.1em;
+        display: grid;
+        gap: 8px;
+      }
+      @media (min-width: 760px) {
+        .tile.lim ul {
+          grid-template-columns: 1fr 1fr;
+          column-gap: 36px;
+        }
+      }
+      .tile b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      /* proof */
+      .big {
+        font-size: clamp(5.5rem, 22vw, 13rem);
+        font-weight: 700;
+        letter-spacing: -0.07em;
+        line-height: 0.95;
+        text-align: center;
+        margin-top: 36px;
+        color: #f5f5f7;
+        font-variant-numeric: tabular-nums;
+      }
+      .big span {
+        color: #6e6e73;
+        font-size: 0.32em;
+        letter-spacing: -0.03em;
+        margin-left: 0.2em;
+      }
+      .proof-sum {
+        text-align: center;
+        font-size: clamp(1.1rem, 2.4vw, 1.5rem);
+        color: #f5f5f7;
+        margin-top: 14px;
+      }
+      .dark details {
+        color: #a1a1a6;
+      }
+      .dark summary {
+        color: #6cb6ff;
+      }
+      .layers {
+        display: grid;
+        gap: 1px;
+        background: #2c2c2e;
+        border-radius: 18px;
+        overflow: hidden;
+        margin-top: 14px;
+      }
+      .layers div {
+        background: #1d1d1f;
+        padding: 14px 18px;
+        display: grid;
+        gap: 4px;
+        font-size: 0.92rem;
+      }
+      @media (min-width: 760px) {
+        .layers div {
+          grid-template-columns: 240px 1fr;
+          gap: 20px;
+        }
+      }
+      .layers b {
+        color: #f5f5f7;
+        font-weight: 600;
+      }
+      /* pilot */
+      .card {
+        background: var(--alt);
+        border-radius: 36px;
+        padding: clamp(24px, 5vw, 56px);
+        margin-top: 52px;
+      }
+      .guar {
+        background: #fff;
+        border-radius: 20px;
+        padding: 20px 24px;
+        font-size: 1.02rem;
+      }
+      .steps {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 14px;
+        margin: 22px 0;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .steps li {
+        font-size: 0.95rem;
+        color: var(--mute);
+      }
+      .steps b {
+        display: block;
+        color: var(--ink);
+        font-size: 1.1rem;
+        letter-spacing: -0.02em;
+      }
+      dl {
+        display: grid;
+        gap: 0;
+        border-top: 1px solid #d2d2d7;
+      }
+      dl div {
+        display: grid;
+        gap: 4px;
+        padding: 16px 0;
+        border-bottom: 1px solid #d2d2d7;
+      }
+      @media (min-width: 760px) {
+        dl div {
+          grid-template-columns: 200px 1fr;
+          gap: 24px;
+        }
+      }
+      dt {
+        font-weight: 600;
+      }
+      dd {
+        color: var(--mute);
+        margin: 0;
+      }
+      /* hiring */
+      .chips {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin: 30px 0 0;
+      }
+      .chips li {
+        background: #fff;
+        border-radius: 99px;
+        padding: 6px 16px;
+        font-size: 0.9rem;
+        font-weight: 500;
+      }
+      .two {
+        display: grid;
+        gap: 36px;
+        margin-top: 44px;
+        align-items: start;
+      }
+      @media (min-width: 900px) {
+        .two {
+          grid-template-columns: 1.1fr 1fr;
+        }
+      }
+      .two .vid {
+        margin: 0;
+        border-radius: 24px;
+        box-shadow: none;
+      }
+      .dec {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 16px;
+        margin-top: 16px;
+      }
+      .dec li {
+        color: var(--mute);
+        font-size: 0.96rem;
+      }
+      .dec b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .res3 {
+        display: grid;
+        gap: 14px;
+        margin-top: 40px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .res3 > div {
+        background: #fff;
+        border-radius: 24px;
+        padding: 26px;
+      }
+      .res3 h3 {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+      }
+      .res3 p {
+        font-size: 0.92rem;
+        color: var(--mute);
+        margin-top: 8px;
+        overflow-wrap: anywhere;
+      }
+      /* about + closing */
+      .about {
+        max-width: 36em;
+        margin: 22px auto 0;
+        text-align: center;
+        font-size: 1.15rem;
+        color: var(--mute);
+      }
+      .close {
+        text-align: center;
+      }
+      .close h2 {
+        max-width: 14em;
+        margin: 0 auto;
+      }
+      .close .lead {
+        margin-top: 20px;
+      }
+      footer {
+        background: var(--alt);
+        font-size: 0.82rem;
+        color: var(--mute);
+        padding: 28px 0;
+      }
+      footer .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 28px;
+        justify-content: space-between;
+      }
+      footer ul {
+        list-style: none;
+        padding: 0;
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <nav class="top" aria-label="Page sections">
+      <div class="wrap">
+        <a class="brand" href="#top">Order Status Reply Drafter</a>
+        <div class="links">
+          <a href="#demo">Demo</a><a href="#how">How it works</a
+          ><a href="#try">Try it</a><a href="#proof">Proof</a
+          ><a href="#pilot">Pilot</a
+          ><a href="#hiring" data-track="click-hiring-shortcut">Hiring</a>
+        </div>
+        <a
+          class="btn btn-p btn-s"
+          data-mail
+          data-track="click-pilot-email"
+          href="mailto:mickosugianto.dev@gmail.com"
+          >Request a pilot scope</a
+        >
+      </div>
+    </nav>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="wrap">
+          <p class="pill rise">Drafts only. Never sends on its own.</p>
+          <h1 class="rise d1">
+            Order-status emails, drafted for you to review and send.
+          </h1>
+          <p class="lead rise d2">
+            A Gmail + Google Sheets automation built in n8n for small online
+            stores. It drafts replies to &ldquo;where is my order?&rdquo; emails
+            from your order records.
+          </p>
+          <div class="row rise d2">
+            <button class="btn btn-p" id="watch" type="button">
+              Watch the 2-minute demo</button
+            ><a
+              class="more"
+              data-mail
+              data-track="click-pilot-email"
+              id="alt-cta"
+              href="mailto:mickosugianto.dev@gmail.com"
+              >Request a pilot scope</a
+            >
+          </div>
+          <p class="copy rise d2">
+            Demo uses synthetic orders and controlled test accounts.
+            <a id="hire-jump" href="#hiring" data-track="click-hiring-shortcut"
+              >Hiring? See the engineering walkthrough.</a
+            >
+          </p>
+          <div id="demo" class="rise d3">
+            <div class="vid" id="va">
+              <button
+                class="poster"
+                type="button"
+                data-embed="https://www.loom.com/embed/14d2cffc42b64e948d60d1af9de14328"
+                data-title="Order Status Reply Drafter, 2-minute store owner demo (test data)"
+                data-ev="play-video-a"
+              >
+                <img
+                  src="video-a-poster.jpg"
+                  alt=""
+                  width="1280"
+                  height="720"
+                  fetchpriority="high"
+                /><span class="play" aria-hidden="true"
+                  ><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg
+                ></span>
+                <span class="cap"
+                  >Play the 2-minute demo (2m 15s)<small
+                    >A real Gmail draft from a synthetic test run</small
+                  ></span
+                >
+              </button>
+            </div>
+            <div class="meta">
+              <span>Test data, not real customers.</span
+              ><span
+                >Embed blocked?
+                <a
+                  href="https://www.loom.com/share/14d2cffc42b64e948d60d1af9de14328"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-track="play-video-a"
+                  >Open on Loom</a
+                ></span
+              >
+            </div>
+            <details>
+              <summary>Video summary (text alternative)</summary>
+              <p>
+                A customer asks &ldquo;Where is order 1001?&rdquo; in a
+                controlled test inbox. The workflow looks up the order in a
+                synthetic <code>Orders</code> sheet, checks the sender matches
+                the order record, and saves a plain-text draft in the same Gmail
+                thread with status, tracking number and estimated delivery date.
+                It also shows a clarification draft for a missing order number,
+                and refund or sender-mismatch emails flagged with
+                <code>needs-review</code> instead of a draft.
+              </p>
+            </details>
+          </div>
+          <div class="facts" aria-label="Verification highlights">
+            <div>
+              <strong>10 of 10</strong>live test cases passed: 6 drafts, 4
+              flagged, 0 sent
+            </div>
+            <div>
+              <strong>Drafts only</strong>A person reviews every reply and
+              clicks send
+            </div>
+            <div>
+              <strong>Real services</strong>Tested on real Gmail and Google
+              Sheets
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dark" id="how">
+        <div class="wrap">
+          <h2>Four steps. You have the last word.</h2>
+          <p class="lead">
+            An order question becomes a verified Gmail draft. Nothing is ever
+            sent automatically.
+          </p>
+          <ol class="flow" aria-label="Four-step workflow">
+            <li>
+              <span class="n" aria-hidden="true">1</span>
+              <h3>Customer email</h3>
+              <p>
+                A &ldquo;where is my order?&rdquo; email gets your order-status
+                Gmail label.
+              </p>
+              <span class="chip">Labelled in Gmail</span>
+            </li>
+            <li>
+              <span class="n" aria-hidden="true">2</span>
+              <h3>Find the order in your records</h3>
+              <p>
+                An exact, rule-based lookup checks the order number and customer
+                email.
+              </p>
+              <span class="chip">Rules decide</span>
+            </li>
+            <li>
+              <span class="n" aria-hidden="true">3</span>
+              <h3>Draft the reply in the thread</h3>
+              <p>
+                Saves a plain-text draft, or flags unusual emails for review.
+              </p>
+              <span class="chip">AI writes from verified facts</span>
+            </li>
+            <li class="you">
+              <span class="n" aria-hidden="true">4</span>
+              <h3>You review and send</h3>
+              <p>
+                You read the draft in Gmail and click send. That is the only way
+                a reply leaves.
+              </p>
+              <span class="chip">You decide</span>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="alt" id="try">
+        <div class="wrap">
+          <h2>Pick an email. See what happens.</h2>
+          <p class="lead">
+            The nine cases below come from the tested scenarios.
+          </p>
+          <div class="sim">
+            <div
+              class="tabs"
+              role="tablist"
+              aria-label="Incoming emails"
+              aria-orientation="vertical"
+              id="tabs"
+            ></div>
+            <div
+              class="panel"
+              role="tabpanel"
+              id="panel"
+              aria-live="polite"
+              tabindex="0"
+            ></div>
+          </div>
+          <noscript
+            ><p class="fine">
+              Turn on JavaScript to try the examples. The full list of outcomes
+              is in the GitHub README.
+            </p></noscript
+          >
+          <p class="fine">
+            Illustration of recorded test outcomes. It does not run the
+            workflow.
+          </p>
+        </div>
+      </section>
+
+      <section id="safety">
+        <div class="wrap">
+          <h2>Built to fail safely, and honest about limits.</h2>
+          <p class="lead">
+            Every reply passes deterministic checks before it is drafted.
+          </p>
+          <div class="bento">
+            <div class="tile">
+              <h3>Drafts only</h3>
+              <p>No node in the workflow sends customer emails.</p>
+            </div>
+            <div class="tile">
+              <h3>Exact lookup</h3>
+              <p>
+                Order matching is rule-based. The AI extracts the question and
+                writes prose from verified facts. Missing or unknown numbers use
+                fixed templates.
+              </p>
+            </div>
+            <div class="tile">
+              <h3>People handle exceptions</h3>
+              <p>
+                Refunds, multiple orders, conflicting info and unusual requests
+                go to you.
+              </p>
+            </div>
+            <div class="tile">
+              <h3>Failures stay visible</h3>
+              <p>
+                If something fails halfway, the work is kept for inspection
+                instead of retried blindly, so a retry can&rsquo;t create
+                duplicate drafts.
+              </p>
+            </div>
+            <div class="tile ai">
+              <h3>What the AI sees</h3>
+              <p>
+                The customer&rsquo;s question and, for a verified match, that
+                one order&rsquo;s details are sent to the AI providers (Groq,
+                with OpenRouter as fallback) to write the draft.
+              </p>
+            </div>
+            <div class="tile lim">
+              <h3>What it doesn&rsquo;t do</h3>
+              <ul>
+                <li>
+                  <b>Synthetic test data.</b> Built and tested on synthetic
+                  orders and two controlled accounts, not live customer traffic.
+                </li>
+                <li>
+                  <b>Plain-text English, one order per email.</b> No attachments
+                  or multi-order requests.
+                </li>
+                <li>
+                  <b>A consistency check, not authentication.</b> Sender
+                  matching does not prove who the customer is.
+                </li>
+                <li>
+                  <b>A person reads every draft.</b> It does not replace review
+                  before sending.
+                </li>
+                <li>
+                  <b>No automatic recovery or dashboard.</b> Uncertain writes
+                  pause for manual inspection.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dark" id="proof">
+        <div class="wrap">
+          <h2>Tested end to end.</h2>
+          <p class="lead">
+            Run on real Gmail, Google Sheets, PostgreSQL and model APIs, using
+            synthetic data.
+          </p>
+          <div class="big" aria-label="10 of 10">
+            <span class="cnt" data-to="10" style="all: unset">10</span
+            ><span> of 10</span>
+          </div>
+          <p class="proof-sum">
+            6 drafts, 4 manual reviews, 0 customer replies sent.
+          </p>
+          <p class="copy">
+            Covered: shipped, processing and delivered orders; missing and
+            unknown numbers; a refund; an instruction-override attempt; sender
+            mismatch; multiple orders; quoted email history. Controlled run, 20
+            Oct 2026.
+          </p>
+          <details>
+            <summary>See all verification layers</summary>
+            <div class="layers">
+              <div>
+                <b>End-to-end regression</b
+                ><span
+                  >10 of 10 cases passed on real Gmail, Sheets and model calls.
+                  20 Oct 2026.</span
+                >
+              </div>
+              <div>
+                <b>Offline policy tests</b
+                ><span
+                  >246 cases plus 3 static audits of runtime expressions and
+                  model prompts.</span
+                >
+              </div>
+              <div>
+                <b>Recovery and guard checks</b
+                ><span
+                  >57 of 57 passed, plus 107 observer and control checks.</span
+                >
+              </div>
+              <div>
+                <b>Model-stage evaluation</b
+                ><span
+                  >8 of 8 on Groq <code>qwen/qwen3.8-27b</code> (5 extraction, 3
+                  drafting).</span
+                >
+              </div>
+              <div>
+                <b>Reliability proofs</b
+                ><span
+                  >Overlapping runs excluded, same-draft recovery, completed
+                  email skipped, uncertain draft creation refused.</span
+                >
+              </div>
+            </div>
+          </details>
+          <p class="copy">
+            These are separate test layers, not additional live email scenarios.
+            <a
+              href="https://github.com/mickoSugianto/n8n-OrderStatusReplyDrafter#tested-behavior"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-track="click-repo"
+              >Read the verification docs</a
+            >
+          </p>
+        </div>
+      </section>
+
+      <section id="pilot">
+        <div class="wrap">
+          <h2>Try it on your inbox.</h2>
+          <p class="lead">
+            A focused setup that connects your Gmail and order records, so
+            routine replies are waiting as drafts when you open your email.
+          </p>
+          <div class="card">
+            <div class="guar">
+              <b>Works as agreed, or I fix it.</b> We write down what
+              &ldquo;working&rdquo; means before I start. If it doesn&rsquo;t
+              meet that, I fix it at no extra cost until it does (within 14 days
+              of delivery). If it still doesn&rsquo;t pass, your deposit is
+              refunded.
+            </div>
+            <ol class="steps" aria-label="How a pilot starts">
+              <li>
+                <b>1. Email your weekly volume</b>Roughly how many order-status
+                emails you get.
+              </li>
+              <li>
+                <b>2. Get a one-page scope</b>Fixed price, within 24 hours.
+              </li>
+              <li>
+                <b>3. Agree what &ldquo;working&rdquo; means</b>In writing,
+                before work begins.
+              </li>
+            </ol>
+            <dl>
+              <div>
+                <dt>What you get</dt>
+                <dd>
+                  Gmail + order-data automation that drafts replies for the
+                  common order-status cases, with human review on every draft.
+                </dd>
+              </div>
+              <div>
+                <dt>Scope</dt>
+                <dd>
+                  Connects to Gmail and one order data source (tested with
+                  Google Sheets). The lookup is a separate module, so it can be
+                  pointed at Shopify or WooCommerce as a scoped add-on, quoted
+                  in your one-page scope and not part of the tested demo.
+                  Changes beyond the agreed scope are quoted separately. 14-day
+                  post-delivery support and defect-fix window.
+                </dd>
+              </div>
+              <div>
+                <dt>Acceptance</dt>
+                <dd>
+                  Criteria for &ldquo;working&rdquo; agreed in writing before
+                  work starts.
+                </dd>
+              </div>
+              <div>
+                <dt>Price</dt>
+                <dd>
+                  Fixed price, deposit to start, quoted in your one-page scope
+                  within 24 hours.
+                </dd>
+              </div>
+              <div>
+                <dt>What I need from you</dt>
+                <dd>
+                  10&ndash;20 past order-status emails, a copy or export of your
+                  order records (a spreadsheet works, or read-only access to
+                  your store&rsquo;s orders if we scope that add-on), and Gmail
+                  access for a test label.
+                </dd>
+              </div>
+            </dl>
+            <div class="row">
+              <a
+                class="btn btn-p"
+                data-mail
+                data-track="click-pilot-email"
+                href="mailto:mickosugianto.dev@gmail.com"
+                >Request a pilot scope</a
+              >
+            </div>
+            <p class="copy">
+              Or copy the address: <b>mickosugianto.dev@gmail.com</b
+              ><button type="button" data-copy="mickosugianto.dev@gmail.com">
+                Copy email
+              </button>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="alt" id="hiring">
+        <div class="wrap">
+          <h2>For hiring managers.</h2>
+          <p class="lead">
+            A 3-minute walkthrough of the 9-phase workflow, the PostgreSQL
+            idempotency ledger, the recovery state machine and the test suite.
+          </p>
+          <ul class="chips" aria-label="Technical stack">
+            <li>n8n</li>
+            <li>Gmail API</li>
+            <li>Google Sheets</li>
+            <li>PostgreSQL (Supabase)</li>
+            <li>Groq</li>
+            <li>OpenRouter</li>
+          </ul>
+          <div class="two">
+            <div>
+              <div class="vid" id="vb">
+                <button
+                  class="poster"
+                  type="button"
+                  data-embed="https://www.loom.com/embed/6e30e049b58847f48ef64aaf45b57152"
+                  data-title="Order Status Reply Drafter, 3-minute engineering walkthrough (test data)"
+                  data-ev="play-video-b"
+                >
+                  <span class="play" aria-hidden="true"
+                    ><svg viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" /></svg></span
+                  ><span class="cap"
+                    >Play the engineering walkthrough (3m 19s)<small
+                      >Architecture, ledger states and test suite</small
+                    ></span
+                  >
+                </button>
+              </div>
+              <div class="meta">
+                <span>Test data, not real customers.</span
+                ><span
+                  >Embed blocked?
+                  <a
+                    href="https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-track="play-video-b"
+                    >Open on Loom</a
+                  ></span
+                >
+              </div>
+              <details>
+                <summary>Walkthrough summary (text alternative)</summary>
+                <p>
+                  Covers the 9-phase main workflow, the isolated
+                  <code>GetOrder</code> lookup contract, the PostgreSQL state
+                  machine keyed on <code>(mailbox, source_message_id)</code>,
+                  draft-intent recording before Gmail is called, and the offline
+                  and live verification suites.
+                </p>
+              </details>
+            </div>
+            <div>
+              <h3>Key design decisions</h3>
+              <ul class="dec">
+                <li>
+                  <b
+                    >Deterministic lookup, LLM limited to extraction and
+                    drafting.</b
+                  >
+                  Exact matching and sender checks run in code before any order
+                  facts reach a prompt.
+                </li>
+                <li>
+                  <b>Atomic PostgreSQL claim per mailbox and message.</b> A
+                  composite key stops concurrent polls from drafting twice.
+                </li>
+                <li>
+                  <b>Checkpoints, readback and safe recovery.</b> Draft intent
+                  is saved before Gmail is called, the draft is read back to
+                  verify it, and a draft is never re-created when the outcome is
+                  uncertain.
+                </li>
+                <li>
+                  <b>Human review gate on every reply.</b> Refunds, prompt
+                  overrides, multi-order emails and sender mismatches go to
+                  manual review.
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="res3">
+            <div>
+              <h3>Order Status Reply Drafter</h3>
+              <p>
+                <a
+                  href="https://github.com/mickoSugianto/n8n-OrderStatusReplyDrafter"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-track="click-repo"
+                  >github.com/mickoSugianto/n8n-OrderStatusReplyDrafter</a
+                >
+              </p>
+              <p>
+                3 core workflows and 4 test workflows, ledger SQL, sample data,
+                setup and recovery guides.
+              </p>
+            </div>
+            <div>
+              <h3>LinkedIn</h3>
+              <p>
+                <a
+                  href="https://linkedin.com/in/micko-sugianto"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >linkedin.com/in/micko-sugianto</a
+                >
+              </p>
+              <p>
+                10+ years in e-commerce and supply-chain operations, plus
+                workflow engineering. Resume sent with applications or on
+                request.
+              </p>
+            </div>
+            <div>
+              <h3>LaunchQueue</h3>
+              <p>
+                <a
+                  href="https://launchqueue.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Live demo</a
+                >
+                &middot;
+                <a
+                  href="https://github.com/mickoSugianto/launchqueue"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >GitHub</a
+                >
+              </p>
+              <p>
+                Next.js + TypeScript pre-order and fulfillment portal with
+                mocked APIs and CI test coverage.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="about">
+        <div class="wrap">
+          <h2>Built by an operator.</h2>
+          <p class="about">
+            I spent 10+ years in e-commerce and supply-chain operations,
+            including running my own online store. Now I build supervised n8n
+            and LLM workflows with human review gates, deterministic data
+            including running my own online store across 2,900+ products +
+            (Instagram, TikTok Shop, and Tokopedia). Now I build supervised n8n
+            + and LLM workflows with human review gates, deterministic data
+            checks and safe failure handling. Based in Tangerang, Indonesia.
+          </p>
+        </div>
+      </section>
+
+      <section class="dark close">
+        <div class="wrap">
+          <h2>Ready to stop typing the same order-status replies?</h2>
+          <p class="lead">
+            Email me roughly how many order-status emails you get per week, and
+            I&rsquo;ll send a one-page pilot scope within 24 hours.
+          </p>
+          <div class="row">
+            <a
+              class="btn btn-p"
+              data-mail
+              data-track="click-pilot-email"
+              href="mailto:mickosugianto.dev@gmail.com"
+              >Request a pilot scope</a
+            >
+          </div>
+          <p class="copy">
+            Email: <b style="color: #f5f5f7">mickosugianto.dev@gmail.com</b
+            ><button
+              type="button"
+              data-copy="mickosugianto.dev@gmail.com"
+              style="color: #6cb6ff"
+            >
+              Copy email
+            </button>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span>Micko Sugianto &middot; Tangerang, Indonesia</span>
+        <ul aria-label="Contact and profile links">
+          <li>
+            <a
+              href="mailto:mickosugianto.dev@gmail.com"
+              data-track="click-pilot-email"
+              >Email</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/mickoSugianto"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-track="click-repo"
+              >GitHub</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://linkedin.com/in/micko-sugianto"
+              target="_blank"
+              rel="noopener noreferrer"
+              >LinkedIn</a
+            >
+          </li>
+        </ul>
+      </div>
+    </footer>
+
+    <script>
+      function track(n) {
+        if (window.goatcounter && window.goatcounter.count)
+          window.goatcounter.count({ path: n, title: n, event: true });
+      }
+      (function () {
+        var $ = function (s, c) {
+          return Array.prototype.slice.call(
+            (c || document).querySelectorAll(s),
+          );
+        };
+        /* mailto with prefilled subject/body */
+        var q =
+          "?subject=" +
+          encodeURIComponent("Pilot enquiry: order-status emails") +
+          "&body=" +
+          encodeURIComponent(
+            "Roughly how many order-status emails do you get per week?",
+          );
+        $("[data-mail]").forEach(function (a) {
+          a.href = "mailto:mickosugianto.dev@gmail.com" + q;
+        });
+        /* tracked links */
+        $("[data-track]").forEach(function (a) {
+          a.addEventListener("click", function () {
+            track(a.getAttribute("data-track"));
+          });
+        });
+        /* video facades: load Loom only on click */
+        function play(b) {
+          var u = b.getAttribute("data-embed");
+          if (!u) return;
+          track(b.getAttribute("data-ev"));
+          var f = document.createElement("iframe");
+          f.src = u + "?hideEmbedTopBar=true&autoplay=1";
+          f.title = b.getAttribute("data-title");
+          f.setAttribute("allow", "autoplay; fullscreen; picture-in-picture");
+          f.setAttribute("allowfullscreen", "");
+          var p = b.parentNode;
+          p.innerHTML = "";
+          p.appendChild(f);
+          f.focus();
+        }
+        $(".poster").forEach(function (b) {
+          b.addEventListener("click", function () {
+            play(b);
+          });
+        });
+        document.getElementById("watch").addEventListener("click", function () {
+          var b = document.querySelector("#va .poster");
+          if (b) play(b);
+          document
+            .getElementById("va")
+            .scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        /* copy email */
+        $("[data-copy]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            track("click-pilot-email");
+            var done = function () {
+              b.textContent = "Copied";
+              setTimeout(function () {
+                b.textContent = "Copy email";
+              }, 2200);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText)
+              navigator.clipboard
+                .writeText(b.getAttribute("data-copy"))
+                .then(done);
+            else {
+              var t = document.createElement("input");
+              t.value = b.getAttribute("data-copy");
+              document.body.appendChild(t);
+              t.select();
+              document.execCommand("copy");
+              document.body.removeChild(t);
+              done();
+            }
+          });
+        });
+        /* audience routing by ?src= */
+        var src = (
+          new URLSearchParams(location.search).get("src") || ""
+        ).toLowerCase();
+        if (src === "application" || src === "linkedin") {
+          var a = document.getElementById("alt-cta");
+          a.textContent = "See the engineering walkthrough";
+          a.href = "#hiring";
+          a.removeAttribute("data-mail");
+          a.setAttribute("data-track", "click-hiring-shortcut");
+        }
+        /* outcome explorer (accessible tabs) */
+        var C = [
+          [
+            "Where is order 1001?",
+            "d",
+            "Draft in your Gmail thread",
+            "Status, tracking number and delivery date, with the date described as an estimate.",
+            "Hello,\n\nOrder 1001 for the Ceramic mug set has been shipped. The tracking number is TRK1001. The estimated delivery date is 2026-10-20. Please note that this is an estimate.\n\nBest regards,\nSample Shop Support",
+          ],
+          [
+            "When will order 1002 ship?",
+            "d",
+            "Draft: still processing",
+            "Says the order is processing and that the dispatch date is not yet available.",
+          ],
+          [
+            "Has order 1003 been delivered?",
+            "d",
+            "Draft: delivered",
+            "Delivered status and tracking number, with no invented delivery date.",
+          ],
+          [
+            "Has my order shipped?",
+            "d",
+            "Draft asking for the order number",
+            "There is no order number, so a fixed template asks the customer for it. No lookup is made.",
+          ],
+          [
+            "Where is order 9999?",
+            "d",
+            "Draft asking to double-check",
+            "No such order exists, so a fixed template asks the customer to confirm the number.",
+          ],
+          [
+            "Please refund order 1001.",
+            "f",
+            "Flagged for you. No draft",
+            "Refunds are a decision for a person, so the email gets a needs-review label.",
+          ],
+          [
+            "Where are orders 1001 and 1002?",
+            "f",
+            "Flagged for you. No draft",
+            "One order per email is supported, so two different numbers go to a person.",
+          ],
+          [
+            "Email from a different address than the order\u2019s customer",
+            "f",
+            "Flagged for you. No draft",
+            "Order details are never given to the AI, and no draft is written.",
+          ],
+          [
+            "The same email, picked up twice",
+            "s",
+            "Skipped",
+            "This exact message was already handled, so no second draft is made.",
+          ],
+        ];
+        var L = { d: "Draft", f: "Flagged", s: "Skipped" },
+          tabs = document.getElementById("tabs"),
+          panel = document.getElementById("panel"),
+          bs = [];
+        function el(t, c, x) {
+          var e = document.createElement(t);
+          if (c) e.className = c;
+          if (x) e.textContent = x;
+          return e;
+        }
+        function show(i, focus) {
+          bs.forEach(function (b, j) {
+            var on = i === j;
+            b.setAttribute("aria-selected", on);
+            b.tabIndex = on ? 0 : -1;
+          });
+          var c = C[i];
+          panel.setAttribute("aria-labelledby", "t" + i);
+          panel.innerHTML = "";
+          var m = el("div", "mail");
+          m.appendChild(el("small", 0, "Incoming email"));
+          m.appendChild(document.createTextNode(c[0]));
+          panel.appendChild(m);
+          var r = el("div", "res");
+          r.appendChild(el("span", "badge b-" + c[1], L[c[1]]));
+          r.appendChild(el("h3", 0, c[2]));
+          r.appendChild(el("p", 0, c[3]));
+          if (c[4]) {
+            r.appendChild(el("div", "draft", c[4]));
+          }
+          panel.appendChild(r);
+          if (focus) bs[i].focus();
+        }
+        C.forEach(function (c, i) {
+          var b = el("button");
+          b.type = "button";
+          b.id = "t" + i;
+          b.setAttribute("role", "tab");
+          b.setAttribute("aria-controls", "panel");
+          b.appendChild(el("span", "dot k-" + c[1]));
+          b.appendChild(document.createTextNode(c[0]));
+          b.addEventListener("click", function () {
+            show(i);
+          });
+          b.addEventListener("keydown", function (e) {
+            var n = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
+              e.key
+            ];
+            if (n) {
+              e.preventDefault();
+              show((i + n + C.length) % C.length, true);
+            } else if (e.key === "Home") {
+              e.preventDefault();
+              show(0, true);
+            } else if (e.key === "End") {
+              e.preventDefault();
+              show(C.length - 1, true);
+            }
+          });
+          tabs.appendChild(b);
+          bs.push(b);
+        });
+        show(0);
+        /* scroll-spy */
+        var links = $(".links a");
+        if ("IntersectionObserver" in window) {
+          var io = new IntersectionObserver(
+            function (es) {
+              es.forEach(function (e) {
+                if (e.isIntersecting) {
+                  links.forEach(function (l) {
+                    if (l.getAttribute("href") === "#" + e.target.id)
+                      l.setAttribute("aria-current", "true");
+                    else l.removeAttribute("aria-current");
+                  });
+                }
+              });
+            },
+            { rootMargin: "-45% 0px -50% 0px" },
+          );
+          $("main section[id]").forEach(function (s) {
+            io.observe(s);
+          });
+          /* count-up when the proof number enters view */
+          var n = document.querySelector(".cnt");
+          if (n && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            var go = new IntersectionObserver(
+              function (es) {
+                if (es[0].isIntersecting) {
+                  go.disconnect();
+                  var t = +n.getAttribute("data-to"),
+                    s = null;
+                  (function f(ts) {
+                    s = s || ts;
+                    var p = Math.min((ts - s) / 1200, 1);
+                    n.textContent = Math.round(t * (1 - Math.pow(1 - p, 3)));
+                    if (p < 1) requestAnimationFrame(f);
+                  })(performance.now());
+                }
+              },
+              { threshold: 0.6 },
+            );
+            go.observe(n);
+          }
+        }
+      })();
+      window.goatcounter = {
+        path: function (p) {
+          var s = new URLSearchParams(location.search).get("src");
+          return s ? p + "?src=" + encodeURIComponent(s) : p;
+        },
+      };
+    </script>
+    <script
+      data-goatcounter="https://mickosugianto.goatcounter.com/count"
+      async
+      src="https://gc.zgo.at/count.js"
+    ></script>
+  </body>
+</html>
