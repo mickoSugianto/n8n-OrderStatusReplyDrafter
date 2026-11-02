@@ -43,7 +43,7 @@
       "module": "main-policy",
       "function": "saveGate",
       "node": "RecheckAllowedRecipient",
-      "expression": "={{ (function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('SharedReplyContext').item.json, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}"
+      "expression": "={{ (function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('SharedReplyContext').item.json, [$('WorkflowConfig').item.json.customerEmail,$('WorkflowConfig').item.json.receiverEmail]) }}"
     },
     {
       "module": "main-policy",
@@ -61,7 +61,7 @@
       "module": "main-policy",
       "function": "validateRequestInput",
       "node": "ValidateRequestInput",
-      "expression": "={{ (function validateRequestInput(source, message, allowlist) {\n  const addresses = message.from?.value;\n  const candidate = Array.isArray(addresses) && addresses.length === 1 && typeof addresses[0].address === 'string'\n    ? addresses[0].address.trim().toLowerCase() : '';\n  const valid = candidate.length <= 254 && /^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(candidate)\n    && candidate.split('@')[0].length <= 64 && candidate.split('@')[1].split('.').every(label => label.length <= 63);\n  if (!valid || !allowlist.includes(candidate)) return {...source, route: 'review', reason: 'invalid_recipient'};\n  source.recipient = candidate;\n  if (!source.cleaned_question) return {...source, route: 'review', reason: 'empty_input'};\n  return source;\n})($('CleanCustomerQuestion').item.json, $('ReceivePendingDemo').item.json, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}"
+      "expression": "={{ (function validateRequestInput(source, message, allowlist) {\n  const addresses = message.from?.value;\n  const candidate = Array.isArray(addresses) && addresses.length === 1 && typeof addresses[0].address === 'string'\n    ? addresses[0].address.trim().toLowerCase() : '';\n  const valid = candidate.length <= 254 && /^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(candidate)\n    && candidate.split('@')[0].length <= 64 && candidate.split('@')[1].split('.').every(label => label.length <= 63);\n  if (!valid || !allowlist.includes(candidate)) return {...source, route: 'review', reason: 'invalid_recipient'};\n  source.recipient = candidate;\n  if (!source.cleaned_question) return {...source, route: 'review', reason: 'empty_input'};\n  return source;\n})($('CleanCustomerQuestion').item.json, $('ReceivePendingDemo').item.json, [$('WorkflowConfig').item.json.customerEmail,$('WorkflowConfig').item.json.receiverEmail]) }}"
     },
     {
       "module": "main-policy",

@@ -13,11 +13,11 @@ Use this checklist alongside:
 
 ### Core Application Workflows
 
-| Workflow | Export Path | Placeholders to Replace |
-| --- | --- | --- |
-| **GetOrder** | `workflows/get-order.json` | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
-| **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `<GET_ORDER_WORKFLOW_ID>`, `<MAIN_WORKFLOW_ID>`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>` |
-| **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `<MAIN_WORKFLOW_ID>` |
+| Workflow | Export Path | Nodes to Configure | Placeholders / Fields |
+| --- | --- | --- | --- |
+| **GetOrder** | `workflows/get-order.json` | `ReadAllOrders` (dropdowns) | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
+| **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `ReceivePendingDemo` (dropdown), `WorkflowConfig` (5 form fields), `GetOrderDeterministically` (dropdown) | `customerEmail`, `receiverEmail`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>`, `<GET_ORDER_WORKFLOW_ID>` |
+| **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `RecoverThroughMain` (dropdown) | `<MAIN_WORKFLOW_ID>` |
 
 ### Optional Testing & Evaluation Workflows
 
@@ -32,15 +32,14 @@ Use this checklist alongside:
 
 ## 2. Reserved Email Addresses & Sample Data
 
-Replace all placeholder email addresses across workflow code expressions and your Google Sheet:
+Replace all placeholder email addresses in `WorkflowConfig` and your Google Sheet:
 
 - **`controlled-sender@example.com` / `<CUSTOMER_EMAIL>`** → Replace with your controlled customer test email in:
-  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `workflows/main-workflow.json`
+  - `WorkflowConfig` (`customerEmail` field) in `workflows/main-workflow.json`
   - All `customer_email` rows in `database/sample-orders.csv` (before or after importing to Google Sheets)
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 - **`controlled-receiver@example.com` / `<RECEIVER_EMAIL>`** → Replace with your authenticated support receiver Gmail address in:
-  - `VerifyMailboxAndSource` expected receiver check in `workflows/main-workflow.json`
-  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `workflows/main-workflow.json` (kept in the allowlist to support the receiver-to-self sender-mismatch test case `S08`)
+  - `WorkflowConfig` (`receiverEmail` field) in `workflows/main-workflow.json` (used for both receiver mailbox verification and the allowlists supporting the receiver-to-self sender-mismatch test case `S08`)
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 
 ---
@@ -60,7 +59,7 @@ Every credentialed node must be explicitly bound and verified in n8n (do not rel
 
 ## 4. Safety & Readiness Flags
 
-- **Label IDs in expressions:** When replacing `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, and `<REVIEW_LABEL_ID>`, update both the Gmail node parameters and the label-verification code expressions (`VerifyMailboxAndSource`, `VerifySourceLabels`).
+- **Centralized label & email config:** When setting `customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, and `reviewLabelId` in `WorkflowConfig` (plus selecting `<INPUT_LABEL_ID>` on the `ReceivePendingDemo` trigger), all downstream label and allowlist nodes (`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, `ConfirmSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, and `VerifyFinalSourceLabels`) read from `WorkflowConfig` automatically.
 - **Keep safety gates closed until ready:**
   - In `RecoverOrderStatusRequest`, leave `writesSettled: false` and identifiers blank until you are actively recovering a specific inspected request.
   - In `RunOrderStatusRegressionTest`, leave `arrivalFilterConfirmed`, `apiCredentialReady`, and `runEnabled` set to `false` until all E2E setup steps are verified.

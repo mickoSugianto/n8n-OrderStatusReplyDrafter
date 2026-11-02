@@ -40,7 +40,7 @@
         "source": "database",
         "workflowId": {
           "__rl": true,
-          "mode": "id",
+          "mode": "list",
           "value": "<MAIN_WORKFLOW_ID>"
         },
         "mode": "each",
