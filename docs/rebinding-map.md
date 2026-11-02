@@ -5,7 +5,7 @@ All exported workflows in this package are **inactive** and stripped of credenti
 Use this checklist alongside:
 - [Setup and Rebinding Guide](setup-and-rebinding.md)
 - [Ledger Database Setup](ledger-database-setup.md)
-- [End-to-End Regression Guide](../deliverables/regression/end-to-end/README.md) (for optional test workflows)
+- [End-to-End Regression Guide](testing-guide.md) (for optional test workflows)
 
 ---
 
@@ -15,18 +15,18 @@ Use this checklist alongside:
 
 | Workflow | Export Path | Placeholders to Replace |
 | --- | --- | --- |
-| **GetOrder** | `deliverables/get-order.json` | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
-| **DraftOrderStatusReply** (Main) | `deliverables/main-workflow.json` | `<GET_ORDER_WORKFLOW_ID>`, `<MAIN_WORKFLOW_ID>`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>` |
-| **RecoverOrderStatusRequest** | `deliverables/reliability/recover-order-status-request.json` | `<MAIN_WORKFLOW_ID>` |
+| **GetOrder** | `workflows/get-order.json` | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
+| **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `<GET_ORDER_WORKFLOW_ID>`, `<MAIN_WORKFLOW_ID>`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>` |
+| **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `<MAIN_WORKFLOW_ID>` |
 
 ### Optional Testing & Evaluation Workflows
 
 | Workflow | Export Path | Placeholders to Replace |
 | --- | --- | --- |
-| **EvaluateOrderStatusModels** | `deliverables/regression/evaluation-workflow.json` | `<MODEL_TEST_DATA_TABLE_ID>` |
-| **Sender** | `deliverables/regression/end-to-end/sender-callable.json` | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>` |
-| **ObserveOrderStatusRegressionCase** | `deliverables/regression/end-to-end/observe-order-status-case.json` | Bind destination Gmail and n8n API credentials on all nodes |
-| **RunOrderStatusRegressionTest** | `deliverables/regression/end-to-end/run-order-status-regression.json` | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<OBSERVER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>`, `<SESSION_DATA_TABLE_ID>`, `<VALIDATED_MAIN_VERSION>`, `<VALIDATED_GET_ORDER_VERSION>`, `<VERIFIED_SENDER_VERSION>` |
+| **EvaluateOrderStatusModels** | `workflows/harness/evaluation-workflow.json` | `<MODEL_TEST_DATA_TABLE_ID>` |
+| **Sender** | `workflows/harness/sender-callable.json` | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>` |
+| **ObserveOrderStatusRegressionCase** | `workflows/harness/observe-order-status-case.json` | Bind destination Gmail and n8n API credentials on all nodes |
+| **RunOrderStatusRegressionTest** | `workflows/harness/run-order-status-regression.json` | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<OBSERVER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>`, `<SESSION_DATA_TABLE_ID>`, `<VALIDATED_MAIN_VERSION>`, `<VALIDATED_GET_ORDER_VERSION>`, `<VERIFIED_SENDER_VERSION>` |
 
 ---
 
@@ -35,12 +35,12 @@ Use this checklist alongside:
 Replace all placeholder email addresses across workflow code expressions and your Google Sheet:
 
 - **`controlled-sender@example.com` / `<CUSTOMER_EMAIL>`** → Replace with your controlled customer test email in:
-  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `deliverables/main-workflow.json`
-  - All `customer_email` rows in `deliverables/sample-orders.csv` (before or after importing to Google Sheets)
+  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `workflows/main-workflow.json`
+  - All `customer_email` rows in `database/sample-orders.csv` (before or after importing to Google Sheets)
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 - **`controlled-receiver@example.com` / `<RECEIVER_EMAIL>`** → Replace with your authenticated support receiver Gmail address in:
-  - `VerifyMailboxAndSource` expected receiver check in `deliverables/main-workflow.json`
-  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `deliverables/main-workflow.json` (kept in the allowlist to support the receiver-to-self sender-mismatch test case `S08`)
+  - `VerifyMailboxAndSource` expected receiver check in `workflows/main-workflow.json`
+  - `ValidateRequestInput` and `RecheckAllowedRecipient` allowlists in `workflows/main-workflow.json` (kept in the allowlist to support the receiver-to-self sender-mismatch test case `S08`)
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 
 ---

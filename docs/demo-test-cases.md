@@ -2,7 +2,7 @@
 
 **Recorded Source Environment Result (October 20, 2026): `10/10 PASS` · 6 Drafts Created · 4 Manual Reviews · 0 Customer Replies Sent · Initial State Restored.**
 
-This document specifies the 10 end-to-end functional scenarios (`S01`–`S10`) executed by the regression runner ([`deliverables/regression/end-to-end/`](../deliverables/regression/end-to-end/README.md)) against synthetic orders and controlled accounts.
+This document specifies the 10 end-to-end functional scenarios (`S01`–`S10`) executed by the regression runner ([`docs/testing-guide.md`](testing-guide.md)) against synthetic orders and controlled accounts.
 
 ---
 
@@ -55,6 +55,6 @@ A test case passes only when its scenario-specific criteria **and** all shared o
 
 ## Related Artifacts
 
-- [Test Case Fixtures (`cases.json`)](../deliverables/regression/end-to-end/cases.json)
-- [Observer Assertion Logic (`observer-assertions.js`)](../deliverables/regression/end-to-end/observer-assertions.js)
-- [Recorded Verification Results (`verification-results.json`)](../deliverables/reliability/verification-results.json)
+- [Test Case Fixtures (`e2e-cases.json`)](../tests/fixtures/e2e-cases.json)
+- [Observer Workflow (`observe-order-status-case.json`)](../workflows/harness/observe-order-status-case.json)
+- [Testing & E2E Runner Guide (`testing-guide.md`)](testing-guide.md)

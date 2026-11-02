@@ -1,10 +1,10 @@
 // Portable recovery assertions against the included sanitized snapshot. No network or database writes.
 'use strict';
 const fs=require('node:fs'),assert=require('node:assert/strict');
-const r=require('../deliverables/regression/lib/recovery-policy');
+const r=require('../src/recovery-policy');
 const path=require('node:path');
 process.chdir(path.resolve(__dirname,'..'));
-const w=JSON.parse(fs.readFileSync('deliverables/main-workflow.json'));
+const w=JSON.parse(fs.readFileSync('workflows/main-workflow.json'));
 const before={id:'<MAIN_WORKFLOW_ID>'};
 const contract={candidate:'synthetic-candidate'};
 const n=name=>{const v=w.nodes.find(n=>n.name===name);assert(v,name);return v;};
@@ -57,6 +57,6 @@ test('no new runtime Code, queue, schedule, send, or provider strategy',()=>{for
 test('all expression targets and wired nodes exist',()=>{const names=new Set(w.nodes.map(n=>n.name));for(const node of w.nodes)for(const [,name]of JSON.stringify(node.parameters).matchAll(/\$\('([^']+)'\)/g))assert(names.has(name),node.name+' -> '+name);for(const [name,types]of Object.entries(w.connections)){assert(names.has(name));for(const outputs of Object.values(types))for(const targets of outputs)for(const t of targets||[])assert(names.has(t.node));}});
 test('raw expressions have one complete delimiter',()=>{for(const node of w.nodes.filter(n=>n.type==='n8n-nodes-base.set')){const s=node.parameters.jsonOutput;assert.deepEqual(s.match(/{{[\s\S]*?}}/g),[s.slice(1)],node.name);}});
 test('all new parameter expressions have complete delimiters',()=>{const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{'))assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};for(const node of w.nodes.filter(n=>n.id.startsWith('t018-')))visit(node.parameters,node.name);});
-test('manual recovery is a small PascalCase workflow',()=>{const rw=JSON.parse(fs.readFileSync('deliverables/reliability/recover-order-status-request.json'));assert.equal(rw.name,'RecoverOrderStatusRequest');assert.equal(rw.nodes.filter(n=>!n.type.endsWith('stickyNote')).length,4);assert(rw.nodes.every(n=>!n.type.includes('gmail')&&!n.type.includes('lmChat')&&!n.type.includes('postgres')));assert.equal(rw.nodes.find(n=>n.name==='SelectUnresolvedRequest').parameters.jsonOutput.includes('"writesSettled":false'),true);});
+test('manual recovery is a small PascalCase workflow',()=>{const rw=JSON.parse(fs.readFileSync('workflows/recover-order-status-request.json'));assert.equal(rw.name,'RecoverOrderStatusRequest');assert.equal(rw.nodes.filter(n=>!n.type.endsWith('stickyNote')).length,4);assert(rw.nodes.every(n=>!n.type.includes('gmail')&&!n.type.includes('lmChat')&&!n.type.includes('postgres')));assert.equal(rw.nodes.find(n=>n.name==='SelectUnresolvedRequest').parameters.jsonOutput.includes('"writesSettled":false'),true);});
 test('setup has one retained table, restricted worker, RLS and no reset',()=>{const sql=fs.readFileSync('database/order-status-ledger.sql','utf8');assert.equal((sql.match(/create table /gi)||[]).length,1);assert(sql.includes('primary key (mailbox, source_message_id)'));assert(sql.includes('on conflict (mailbox,source_message_id) do nothing'));assert(sql.includes('for update;'));assert(sql.includes('enable row level security'));assert(sql.includes('security invoker'));assert(!/security definer|\btruncate\b|\bdrop\b|grant all/i.test(sql));assert(!/grant[^;]*delete/i.test(sql));});
 console.log(`${total} focused local recovery/guard/source checks passed. Offline checks only; no database calls, concurrent executions or Gmail operations were performed.`);

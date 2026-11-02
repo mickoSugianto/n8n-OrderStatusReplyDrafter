@@ -1,0 +1,12 @@
+{
+  "name": "n8n-order-status-reply-drafter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Supervised n8n workflow that turns incoming order-status inquiries into verified Gmail reply drafts.",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:recovery && npm run test:linkage",
+    "test:unit": "node tests/run-regression.js",
+    "test:recovery": "node tests/check-recovery.js",
+    "test:linkage": "node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json"
+  }
+}

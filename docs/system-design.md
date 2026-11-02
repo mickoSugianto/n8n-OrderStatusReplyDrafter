@@ -9,7 +9,7 @@
 3. Dated verification records.
 4. Historical plans.
 
-The [main export](../deliverables/main-workflow.json), [GetOrder](../deliverables/get-order.json), [recovery](../deliverables/reliability/recover-order-status-request.json) and [ledger SQL](../database/order-status-ledger.sql) define the application baseline. The [reliability results](../deliverables/reliability/verification-results.json) and [regression results](../deliverables/regression/verification-results.json) show what was actually demonstrated.
+The [main export](../workflows/main-workflow.json), [GetOrder](../workflows/get-order.json), [recovery](../workflows/recover-order-status-request.json) and [ledger SQL](../database/order-status-ledger.sql) define the application baseline. The [reliability results](../README.md#tested-behavior) and [regression results](../README.md#tested-behavior) show what was actually demonstrated.
 
 A later source closure recorded a native main export that differs from the packaged one in omitted defaults and in presentation dimensions/position. Node names, connections, settings and groups were retained. The package keeps the verified delivered baseline. This document does not establish byte-for-byte parity with the current live workflow, and it does not record a new integration pass.
 
@@ -109,13 +109,13 @@ All seven delivered exports are inactive and stripped of credentials. The inacti
 
 | Packaged workflow | Trigger/input → responsibility → output | Dependencies and credential types | Operational role |
 | --- | --- | --- | --- |
-| [DraftOrderStatusReply](../deliverables/main-workflow.json) | Gmail every-minute poll, or typed recovery `request` object → own, route, save/confirm/label → completed context or named skip; failures stop | Gmail OAuth2 (including profile HTTP request), Postgres, Sheets through GetOrder, Groq API, OpenRouter API; n8n API for previous execution during recovery | Application entry; publish/start deliberately for polling; stopped at final closure |
-| [GetOrder](../deliverables/get-order.json) | Typed string `order_number` → exact matched-row validation → one lookup contract | Google Sheets OAuth2 | Published callable dependency; no poller |
-| [RecoverOrderStatusRequest](../deliverables/reliability/recover-order-status-request.json) | Manual selection → call the same main recovery entry → main outcome | Bound main; external credentials live in main | Manual, inactive; no scheduler |
-| [EvaluateOrderStatusModels](../deliverables/regression/evaluation-workflow.json) | Native Evaluation Trigger rows → select extraction/drafting stage and record scored result | Groq API; separate evaluation Data Table | Optional testing, inactive/unpublished; no Gmail or Orders path |
-| [RunOrderStatusRegressionTest](../deliverables/regression/end-to-end/run-order-status-regression.json) | Manual configured mode → readiness, session ownership, fixture dispatch, observation, restoration → SuiteResults and session row | n8n API, receiver Gmail OAuth2, read-only Sheets OAuth2, sessions Data Table; GetOrder, observer and Sender | Optional test orchestrator; may temporarily start selected main; stays inactive between runs |
-| [ObserveOrderStatusCase](../deliverables/regression/end-to-end/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
-| [Sender](../deliverables/regression/end-to-end/sender-callable.json) | Typed `subject`, `body`, `senderMode`, or manual fixture → exactly one selected delivery path → acceptance receipt | SMTP customer credential or receiver Gmail OAuth2 | Published callable test dependency; manual entry also available; no autonomous trigger |
+| [DraftOrderStatusReply](../workflows/main-workflow.json) | Gmail every-minute poll, or typed recovery `request` object → own, route, save/confirm/label → completed context or named skip; failures stop | Gmail OAuth2 (including profile HTTP request), Postgres, Sheets through GetOrder, Groq API, OpenRouter API; n8n API for previous execution during recovery | Application entry; publish/start deliberately for polling; stopped at final closure |
+| [GetOrder](../workflows/get-order.json) | Typed string `order_number` → exact matched-row validation → one lookup contract | Google Sheets OAuth2 | Published callable dependency; no poller |
+| [RecoverOrderStatusRequest](../workflows/recover-order-status-request.json) | Manual selection → call the same main recovery entry → main outcome | Bound main; external credentials live in main | Manual, inactive; no scheduler |
+| [EvaluateOrderStatusModels](../workflows/harness/evaluation-workflow.json) | Native Evaluation Trigger rows → select extraction/drafting stage and record scored result | Groq API; separate evaluation Data Table | Optional testing, inactive/unpublished; no Gmail or Orders path |
+| [RunOrderStatusRegressionTest](../workflows/harness/run-order-status-regression.json) | Manual configured mode → readiness, session ownership, fixture dispatch, observation, restoration → SuiteResults and session row | n8n API, receiver Gmail OAuth2, read-only Sheets OAuth2, sessions Data Table; GetOrder, observer and Sender | Optional test orchestrator; may temporarily start selected main; stays inactive between runs |
+| [ObserveOrderStatusCase](../workflows/harness/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
+| [Sender](../workflows/harness/sender-callable.json) | Typed `subject`, `body`, `senderMode`, or manual fixture → exactly one selected delivery path → acceptance receipt | SMTP customer credential or receiver Gmail OAuth2 | Published callable test dependency; manual entry also available; no autonomous trigger |
 
 The recipient package runs from sanitized exports and self-contained test assets. Build generators are not runtime dependencies, and they are neither required nor included. The source n8n application version and the destination's importer behavior are unverified. Supabase hosts the ledger only — not the Orders sheet, n8n internals or the test Data Tables.
 
@@ -273,7 +273,7 @@ Source readback checks the exact source and thread and the required labels. It a
 | S09 multiple | Two distinct numbers → no lookup/drafting/save → review |
 | S10 quoted | Quoted second number removed; active question resolves the same order as S01 → independent source claim and confirmed draft |
 
-The [case definitions](../deliverables/regression/end-to-end/cases.json) and the [test table](demo-test-cases.md) give the exact inputs and expected templates. The ten-case expectation is six drafts and four reviews. Unsupported requests create no draft, not even a generic apology.
+The [case definitions](../tests/fixtures/e2e-cases.json) and the [test table](demo-test-cases.md) give the exact inputs and expected templates. The ten-case expectation is six drafts and four reviews. Unsupported requests create no draft, not even a generic apology.
 
 ### Happy-path sequence
 
@@ -310,7 +310,7 @@ Each database call commits separately, and Gmail creation sits between two datab
 
 ### Orders and lookup
 
-The Orders sheet, columns A:F, must have exactly these headers. Import the synthetic [CSV](../deliverables/sample-orders.csv) as text. If cells get converted, unformatted Sheets output returns numbers or date serials, and the validator deliberately rejects those values.
+The Orders sheet, columns A:F, must have exactly these headers. Import the synthetic [CSV](../database/sample-orders.csv) as text. If cells get converted, unformatted Sheets output returns numbers or date serials, and the validator deliberately rejects those values.
 
 | Field | Storage/normalized rule |
 | --- | --- |
@@ -797,9 +797,9 @@ There are three reusable test types. They answer different questions, so do not 
 
 | Type and artifact | How it is invoked and what it proves | Recorded provenance and limits |
 | --- | --- | --- |
-| Direct policy tests, [package](../deliverables/regression/README.md) | `node deliverables/regression/run-regression.js` from this package folder; independent expected fixtures call shared policy functions | Current 246 cases (78 order-validator, 168 other policy) plus three separate static/source audits; historical model-package/refactor records from 2026-10-19, reconfirmed offline at closure. Not whole-graph integration |
-| Model-only evaluation, [export/cases](../deliverables/regression/evaluation-workflow.json) | Reconstruct eight rows, bind Groq/table, use native Evaluation Trigger/Evaluate all following package guide | Eight real cases: five extraction, three drafting; 8/8, eight observed calls / 3,892 tokens. No new model calls for unchanged reliability-layer prompts; no route/save/recovery/failover proof |
-| Actual-main end-to-end, [runner/observer/Sender](../deliverables/regression/end-to-end/README.md) | Configure selected validated versions and readiness, then manually Execute runner once | Final reliability run 2026-10-20: ten real sources, six approved drafts, four reviews, 10/10 PASS, starting state restored. Real services, bounded controlled conditions |
+| Direct policy tests, [package](testing-guide.md) | `node tests/run-regression.js` from this package folder; independent expected fixtures call shared policy functions | Current 246 cases (78 order-validator, 168 other policy) plus three separate static/source audits; historical model-package/refactor records from 2026-10-19, reconfirmed offline at closure. Not whole-graph integration |
+| Model-only evaluation, [export/cases](../workflows/harness/evaluation-workflow.json) | Reconstruct eight rows, bind Groq/table, use native Evaluation Trigger/Evaluate all following package guide | Eight real cases: five extraction, three drafting; 8/8, eight observed calls / 3,892 tokens. No new model calls for unchanged reliability-layer prompts; no route/save/recovery/failover proof |
+| Actual-main end-to-end, [runner/observer/Sender](testing-guide.md) | Configure selected validated versions and readiness, then manually Execute runner once | Final reliability run 2026-10-20: ten real sources, six approved drafts, four reviews, 10/10 PASS, starting state restored. Real services, bounded controlled conditions |
 
 **Demo Essentials** is only `mode:"demo"`. It selects S01, S04, S06 and S08 from the same ten cases and assertions (two drafts, two reviews). It is neither a fourth test type nor another application implementation. Retained full-regression evidence can supply the four scenes without another send batch.
 
@@ -808,7 +808,7 @@ There are three reusable test types. They answer different questions, so do not 
 - **57 recovery checks** cover guards, source and graph relationships.
 - **107 observer/control checks** include eleven negative ledger controls.
 - **Seven final-candidate native dry runs and one observer check** used pinned side effects. They are configuration evidence, not new service proof.
-- The [sanitized summary](../deliverables/reliability/verification-results.json) retains the proofs for overlap, stale-owner rejection, same-draft recovery, review-label recovery, completed-source skip, and actual-create/simulated-checkpoint-loss refusal.
+- The [sanitized summary](../README.md#tested-behavior) retains the proofs for overlap, stale-owner rejection, same-draft recovery, review-label recovery, completed-source skip, and actual-create/simulated-checkpoint-loss refusal.
 - The final reliability work used 13 fresh sources: three focused plus ten regression, with zero customer replies.
 
 Do not add these historical, overlapping counts together.
@@ -820,7 +820,7 @@ Do not add these historical, overlapping counts together.
 - The current architecture does not rewrite either history.
 - Earlier component fallback results stay tied to their recorded configuration and do not become a new final provider-outage test.
 
-**Independent expectations.** `cases.json` and `observer-assertions.js` define expectations without importing main-policy code to recompute business routes. The observer checks:
+**Independent expectations.** `tests/fixtures/e2e-cases.json` and `workflows/harness/observe-order-status-case.json` define expectations without importing main-policy code to recompute business routes. The observer checks:
 
 - required and forbidden calls,
 - selected native main and child versions,
@@ -844,7 +844,7 @@ For a future edit:
 
 | Kind of change | What to run |
 | --- | --- |
-| Selected-source audit | `node tests/check-source-linkage.js deliverables/main-workflow.json deliverables/get-order.json` |
+| Selected-source audit | `node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json` |
 | Portable recovery check | `node tests/check-recovery.js` in the client package |
 | Model changes | Targeted model-stage evaluation |
 | Graph, binding or business changes | Selected-candidate functional regression |
@@ -960,16 +960,16 @@ Possible growth work includes real-store connectors, stronger customer authentic
 
 | Requirement / invariant | Enforcing component or boundary | Evidence / limit |
 | --- | --- | --- |
-| Only deliberate authenticated source admission | Gmail filters; VerifyMailboxAndSource | [Main export](../deliverables/main-workflow.json), final functional run; missed delivery can remain unprocessed |
+| Only deliberate authenticated source admission | Gmail filters; VerifyMailboxAndSource | [Main export](../workflows/main-workflow.json), final functional run; missed delivery can remain unprocessed |
 | One owner per retained mailbox/source key | Atomic INSERT uniqueness, OwnerAcquired | [SQL](../database/order-status-ledger.sql), overlapping reliability proofs; no Gmail fencing |
-| No unverified order facts reach drafting | GetOrder validator, validateLookupResult, resolveOrderRequest | [GetOrder](../deliverables/get-order.json), direct policy cases, S08; email match is not strong authentication |
-| Missing/unknown clarifications avoid model invention | RouteExtractedRequest, RouteOrderRequest, fixed templates | [Independent cases](../deliverables/regression/end-to-end/cases.json) S04/S05 |
-| Bad generated text is withheld | checkGeneratedReply and saveGate | [Policy tests](../deliverables/regression/README.md); incomplete natural-language guarantee |
-| No completed draft without saved identity/readback | Intent/saved checkpoints, verifiedDraft, label verification, CompleteLedger | [Recovery results](../deliverables/reliability/verification-results.json); trim-only edits not detected |
+| No unverified order facts reach drafting | GetOrder validator, validateLookupResult, resolveOrderRequest | [GetOrder](../workflows/get-order.json), direct policy cases, S08; email match is not strong authentication |
+| Missing/unknown clarifications avoid model invention | RouteExtractedRequest, RouteOrderRequest, fixed templates | [Independent cases](../tests/fixtures/e2e-cases.json) S04/S05 |
+| Bad generated text is withheld | checkGeneratedReply and saveGate | [Policy tests](testing-guide.md); incomplete natural-language guarantee |
+| No completed draft without saved identity/readback | Intent/saved checkpoints, verifiedDraft, label verification, CompleteLedger | [Recovery results](../README.md#tested-behavior); trim-only edits not detected |
 | Completed source never regenerated through claim | Completed key retention and AlreadyCompleted | Completed replay proof; storage reset/namespace change breaks assumption |
 | Uncertain write cannot authorize another create | recoveryDecision and recover SQL | Actual-create/simulated-checkpoint-loss proof; inspected adoption requires judgment |
 | Customer replies remain unsent | Main has draft creation, no send operation | Export inspection and final ten cases; human can manually send afterward |
-| Test PASS requires actual candidate/evidence/restoration | Runner/observer and session record | [End-to-end package](../deliverables/regression/end-to-end/README.md); human wording review separate |
+| Test PASS requires actual candidate/evidence/restoration | Runner/observer and session record | [End-to-end package](testing-guide.md); human wording review separate |
 | Portable delivery has private bindings removed | Sanitized exports, rebinding guides, manifest | [Client package](../README.md); clean-room import still unverified |
 
 ### What is guaranteed

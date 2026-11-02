@@ -115,8 +115,8 @@ See the [Operator Recovery Guide](docs/order-status-recovery-guide.md) for step-
 Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.md) and the placeholder checklist in [Rebinding Map](docs/rebinding-map.md).
 
 1. **Database Setup:** Run [`database/order-status-ledger.sql`](database/order-status-ledger.sql) in a dedicated Supabase project, set the password for `order_status_ledger`, create the `OrderStatusLedger` Postgres credential in n8n (with SSL), and run [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql). See [Ledger Database Setup](docs/ledger-database-setup.md).
-2. **Import Workflows (Inactive):** Import [`deliverables/get-order.json`](deliverables/get-order.json), [`deliverables/main-workflow.json`](deliverables/main-workflow.json), and [`deliverables/reliability/recover-order-status-request.json`](deliverables/reliability/recover-order-status-request.json). Keep them inactive while configuring.
-3. **Prepare Orders Sheet:** Import [`deliverables/sample-orders.csv`](deliverables/sample-orders.csv) into an `Orders` tab with **all 6 columns formatted as plain text** (`order_number`, `customer_email`, `status`, `item`, `tracking_number`, `estimated_delivery`). Replace the sample `customer_email` values with your controlled sender address.
+2. **Import Workflows (Inactive):** Import [`workflows/get-order.json`](workflows/get-order.json), [`workflows/main-workflow.json`](workflows/main-workflow.json), and [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json). Keep them inactive while configuring.
+3. **Prepare Orders Sheet:** Import [`database/sample-orders.csv`](database/sample-orders.csv) into an `Orders` tab with **all 6 columns formatted as plain text** (`order_number`, `customer_email`, `status`, `item`, `tracking_number`, `estimated_delivery`). Replace the sample `customer_email` values with your controlled sender address.
 4. **Create Gmail Labels:** In the receiver Gmail account, create:
    - `order-status-reply-drafter/demo-input`
    - `order-status-reply-drafter/triaged`
@@ -131,10 +131,10 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 
 | Path | Description |
 | --- | --- |
-| [`deliverables/main-workflow.json`](deliverables/main-workflow.json) | Main workflow (`DraftOrderStatusReply`) |
-| [`deliverables/get-order.json`](deliverables/get-order.json) | Deterministic order lookup sub-workflow (`GetOrder`) |
-| [`deliverables/reliability/recover-order-status-request.json`](deliverables/reliability/recover-order-status-request.json) | Supervised manual recovery caller (`RecoverOrderStatusRequest`) |
-| [`deliverables/sample-orders.csv`](deliverables/sample-orders.csv) | Synthetic sample orders (import all columns as plain text) |
+| [`workflows/main-workflow.json`](workflows/main-workflow.json) | Main workflow (`DraftOrderStatusReply`) |
+| [`workflows/get-order.json`](workflows/get-order.json) | Deterministic order lookup sub-workflow (`GetOrder`) |
+| [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json) | Supervised manual recovery caller (`RecoverOrderStatusRequest`) |
+| [`database/sample-orders.csv`](database/sample-orders.csv) | Synthetic sample orders (import all columns as plain text) |
 | [`database/order-status-ledger.sql`](database/order-status-ledger.sql) | PostgreSQL table, constraints, RLS, role, and RPC functions |
 | [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql) | Read-only preflight verification SQL |
 | [`docs/system-design.md`](docs/system-design.md) | Full as-built architecture, data contracts, state machines, and sequence diagrams |
@@ -143,10 +143,10 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 | [`docs/ledger-database-setup.md`](docs/ledger-database-setup.md) | Supabase PostgreSQL setup and security instructions |
 | [`docs/order-status-recovery-guide.md`](docs/order-status-recovery-guide.md) | Operator runbook for recovering interrupted executions |
 | [`docs/demo-test-cases.md`](docs/demo-test-cases.md) | Specification of the 10 end-to-end functional scenarios (`S01`–`S10`) |
-| [`deliverables/regression/`](deliverables/regression/README.md) | Offline policy test suite, source-linkage checks, and model evaluation workflow |
-| [`deliverables/regression/end-to-end/`](deliverables/regression/end-to-end/README.md) | Live end-to-end regression runner, observer, and fixture sender workflows |
-| [`tests/`](tests/) | CLI entrypoints for recovery checks (`check-recovery.js`) and source linkage (`check-source-linkage.js`) |
-| [`MANIFEST.json`](MANIFEST.json) | File inventory with byte sizes and SHA-256 checksums |
+| [`workflows/harness/`](workflows/harness/) | Optional model-evaluation and live end-to-end regression harness workflows |
+| [`src/`](src/) | Shared deterministic policy modules, order validator, and model/expression contracts |
+| [`tests/`](tests/) | Offline unit/policy suite (`run-regression.js`), recovery checks (`check-recovery.js`), source-linkage audit (`check-source-linkage.js`), and test fixtures |
+| [`docs/testing-guide.md`](docs/testing-guide.md) | Consolidated offline, model-evaluation, and live end-to-end testing guide |
 
 ---
 
@@ -155,9 +155,9 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 Requires Node.js (built-in modules only; no `npm install` or network access needed). Run from this directory:
 
 ```sh
-node deliverables/regression/run-regression.js
+node tests/run-regression.js
 node tests/check-recovery.js
-node tests/check-source-linkage.js deliverables/main-workflow.json deliverables/get-order.json
+node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json
 ```
 
 - `run-regression.js` runs **246 unit/policy test cases** and **3 static audits**.

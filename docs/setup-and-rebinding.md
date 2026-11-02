@@ -15,9 +15,9 @@ Before importing workflows, provision the PostgreSQL ledger in Supabase by follo
 ## Step 2: Import the Core Workflows (Inactive)
 
 Import the following three workflow exports into n8n and keep them **inactive** during configuration:
-1. [`deliverables/get-order.json`](../deliverables/get-order.json) (`GetOrder`)
-2. [`deliverables/main-workflow.json`](../deliverables/main-workflow.json) (`DraftOrderStatusReply`)
-3. [`deliverables/reliability/recover-order-status-request.json`](../deliverables/reliability/recover-order-status-request.json) (`RecoverOrderStatusRequest`)
+1. [`workflows/get-order.json`](../workflows/get-order.json) (`GetOrder`)
+2. [`workflows/main-workflow.json`](../workflows/main-workflow.json) (`DraftOrderStatusReply`)
+3. [`workflows/recover-order-status-request.json`](../workflows/recover-order-status-request.json) (`RecoverOrderStatusRequest`)
 
 ---
 
@@ -54,7 +54,7 @@ Update the following account references in `DraftOrderStatusReply`:
 
 ## Step 5: Import the Sample Orders Sheet as Plain Text
 
-Create a new Google Sheet with a tab named **`Orders`** and import [`deliverables/sample-orders.csv`](../deliverables/sample-orders.csv).
+Create a new Google Sheet with a tab named **`Orders`** and import [`database/sample-orders.csv`](../database/sample-orders.csv).
 
 - **Columns (`A:F`):** `order_number`, `customer_email`, `status`, `item`, `tracking_number`, `estimated_delivery`
 - **Replace Customer Email:** Update `customer_email` in all three rows (`1001`, `1002`, `1003`) to match your controlled customer sender address.
@@ -122,5 +122,4 @@ In n8n, callable sub-workflows must be published before the parent workflow can 
 
 ## Optional Testing Suites
 
-- **Offline Policy & Native Model Evaluation:** See [`deliverables/regression/README.md`](../deliverables/regression/README.md).
-- **Live End-to-End Regression & Demo Runner:** See [`deliverables/regression/end-to-end/README.md`](../deliverables/regression/end-to-end/README.md).
+- **Offline Policy, Model Evaluation & End-to-End Regression:** See [`docs/testing-guide.md`](testing-guide.md).
