@@ -75,19 +75,30 @@ Create these exact label names in the receiver's Gmail mailbox:
 
 *(The Gmail Trigger search query already filters by these exact label names and excludes `triaged`, drafts, Spam, and Trash—do not put internal label IDs into the trigger search query string.)*
 
-### 2. Rebind Resource & Workflow Placeholders (5 Nodes Total)
+### 2. Look Up the Internal Gmail Label IDs (in a Blank Scratch Canvas)
+Gmail REST API operations require internal IDs (e.g. `Label_1`), not label names. To safely look them up without dirtying `DraftOrderStatusReply` or incrementing its version:
+1. Click **+ Add workflow** to open a blank scratch canvas.
+2. Add a **Gmail** node:
+   - **Credential:** Your authenticated receiver Gmail credential
+   - **Resource:** `Label`
+   - **Operation:** `Get Many`
+3. Click **Execute step** to view the table of all Gmail labels and their IDs.
+4. Note down the 3 matching IDs:
+   - `order-status-reply-drafter/demo-input` → `<INPUT_LABEL_ID>` (e.g. `Label_1`)
+   - `order-status-reply-drafter/triaged` → `<TRIAGED_LABEL_ID>` (e.g. `Label_2`)
+   - `order-status-reply-drafter/needs-review` → `<REVIEW_LABEL_ID>` (e.g. `Label_3`)
+5. Close and discard the scratch workflow.
 
-All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
+### 3. Rebind Resource & Workflow Placeholders (4 Nodes Total)
+
+All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
 
 | Node | Workflow | Action |
 | --- | --- | --- |
 | **`ReadAllOrders`** | `GetOrder` | Select your Google Sheet (`<SPREADSHEET_ID>`) and the `Orders` tab (`<ORDERS_TAB_ID>`) from the dropdowns (keep range `A:F` and read all rows) |
-| **`ReceivePendingDemo`** | `DraftOrderStatusReply` (Phase `01`) | In **Label Names or IDs**, select `order-status-reply-drafter/demo-input` (`<INPUT_LABEL_ID>`) from the dropdown |
-| **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, `inputLabelId` (`<INPUT_LABEL_ID>`), `triagedLabelId` (`<TRIAGED_LABEL_ID>`), and `reviewLabelId` (`<REVIEW_LABEL_ID>`) |
+| **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
 | **`GetOrderDeterministically`** | `DraftOrderStatusReply` (Phase `04`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
 | **`RecoverThroughMain`** | `RecoverOrderStatusRequest` | Select the imported `DraftOrderStatusReply` workflow (`<MAIN_WORKFLOW_ID>`) from the dropdown |
-
-> **Tip — Finding Gmail Label IDs in n8n:** To copy a label's internal ID (e.g., `Label_...`) for `WorkflowConfig`, select the label in `ReceivePendingDemo`'s **Label Names or IDs** dropdown and toggle the field to **Expression** mode to view and copy its ID string. Downstream Gmail label nodes (`MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`) and verification nodes (`VerifyMailboxAndSource`, `VerifyFinalSourceLabels`) read these IDs automatically from `WorkflowConfig`.
 
 ---
 

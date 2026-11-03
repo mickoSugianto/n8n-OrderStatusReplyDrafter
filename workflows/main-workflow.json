@@ -15,9 +15,6 @@
         "filters": {
           "includeSpamTrash": false,
           "includeDrafts": false,
-          "labelIds": [
-            "<INPUT_LABEL_ID>"
-          ],
           "q": "label:order-status-reply-drafter/demo-input -label:order-status-reply-drafter/triaged -in:drafts",
           "readStatus": "both"
         },
