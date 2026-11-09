@@ -44,10 +44,10 @@ The demonstration design uses **two controlled email accounts**:
 - **Customer sender account** (sends test order inquiries)
 - **Support receiver account** (the Gmail inbox watched by n8n)
 
-Update the following account references in `DraftOrderStatusReply`:
-1. **`VerifyMailboxAndSource`:** Replace `controlled-receiver@example.com` with your authenticated receiver Gmail address.
-2. **`ValidateRequestInput` & `RecheckAllowedRecipient`:** In **both** nodes, replace `controlled-sender@example.com` with your controlled sender email and `controlled-receiver@example.com` with your receiver email.
-   - *Keep both addresses in both allowlists.* Allowing the receiver address to send an email to itself enables the sender-ownership mismatch test scenario (`S08`).
+Update the email fields in the centralized **`WorkflowConfig`** Edit Fields node (Phase `01` of `DraftOrderStatusReply`):
+1. **`customerEmail`:** Replace `controlled-sender@example.com` with your controlled customer sender email.
+2. **`receiverEmail`:** Replace `controlled-receiver@example.com` with your authenticated receiver Gmail address.
+   - *(Downstream nodes—`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, and `ConfirmSavedDraft`—automatically read both addresses from `WorkflowConfig`. Allowing the receiver address in the allowlist supports the receiver-to-self sender-ownership mismatch test scenario `S08`.)*
 3. **Store Branding (Optional):** `PrepareSourceContext` defaults to `Sample Shop` and `Sample Shop Support`. Update these strings if desired.
 
 ---
@@ -75,17 +75,30 @@ Create these exact label names in the receiver's Gmail mailbox:
 
 *(The Gmail Trigger search query already filters by these exact label names and excludes `triaged`, drafts, Spam, and Trash—do not put internal label IDs into the trigger search query string.)*
 
-### 2. Replace Resource & Workflow Placeholders
+### 2. Look Up the Internal Gmail Label IDs (in a Blank Scratch Canvas)
+Gmail REST API operations require internal IDs (e.g. `Label_1`), not label names. To safely look them up without dirtying `DraftOrderStatusReply` or incrementing its version:
+1. Click **+ Add workflow** to open a blank scratch canvas.
+2. Add a **Gmail** node:
+   - **Credential:** Your authenticated receiver Gmail credential
+   - **Resource:** `Label`
+   - **Operation:** `Get Many`
+3. Click **Execute step** to view the table of all Gmail labels and their IDs.
+4. Note down the 3 matching IDs:
+   - `order-status-reply-drafter/demo-input` → `<INPUT_LABEL_ID>` (e.g. `Label_1`)
+   - `order-status-reply-drafter/triaged` → `<TRIAGED_LABEL_ID>` (e.g. `Label_2`)
+   - `order-status-reply-drafter/needs-review` → `<REVIEW_LABEL_ID>` (e.g. `Label_3`)
+5. Close and discard the scratch workflow.
 
-| Placeholder | Location | Action |
+### 3. Rebind Resource & Workflow Placeholders (4 Nodes Total)
+
+All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
+
+| Node | Workflow | Action |
 | --- | --- | --- |
-| `<SPREADSHEET_ID>` | `GetOrder` → `ReadAllOrders` → `documentId` | Select your Google Sheet |
-| `<ORDERS_TAB_ID>` | `GetOrder` → `ReadAllOrders` → `sheetName` | Select the `Orders` tab (keep range `A:F` and read all rows) |
-| `<GET_ORDER_WORKFLOW_ID>` | `DraftOrderStatusReply` → `GetOrderDeterministically` | Select the imported `GetOrder` workflow (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
-| `<MAIN_WORKFLOW_ID>` | `DraftOrderStatusReply` (previous-execution check) & `RecoverOrderStatusRequest` (`RecoverThroughMain`) | Set to the destination workflow ID of `DraftOrderStatusReply` |
-| `<INPUT_LABEL_ID>` | `ReceivePendingDemo` (`filters.labelIds`) & `VerifyMailboxAndSource` | Set to the receiver's `order-status-reply-drafter/demo-input` label ID |
-| `<TRIAGED_LABEL_ID>` | `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, & `VerifySourceLabels` | Set to the receiver's `order-status-reply-drafter/triaged` label ID |
-| `<REVIEW_LABEL_ID>` | `ApplyReviewAndTriagedLabels` & `VerifySourceLabels` | Set to the receiver's `order-status-reply-drafter/needs-review` label ID |
+| **`ReadAllOrders`** | `GetOrder` | Select your Google Sheet (`<SPREADSHEET_ID>`) and the `Orders` tab (`<ORDERS_TAB_ID>`) from the dropdowns (keep range `A:F` and read all rows) |
+| **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
+| **`GetOrderDeterministically`** | `DraftOrderStatusReply` (Phase `04`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
+| **`RecoverThroughMain`** | `RecoverOrderStatusRequest` | Select the imported `DraftOrderStatusReply` workflow (`<MAIN_WORKFLOW_ID>`) from the dropdown |
 
 ---
 

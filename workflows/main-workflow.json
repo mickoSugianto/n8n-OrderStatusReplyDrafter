@@ -15,9 +15,6 @@
         "filters": {
           "includeSpamTrash": false,
           "includeDrafts": false,
-          "labelIds": [
-            "<INPUT_LABEL_ID>"
-          ],
           "q": "label:order-status-reply-drafter/demo-input -label:order-status-reply-drafter/triaged -in:drafts",
           "readStatus": "both"
         },
@@ -383,7 +380,7 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "mode": "id",
+          "mode": "list",
           "value": "<GET_ORDER_WORKFLOW_ID>"
         },
         "workflowInputs": {
@@ -692,7 +689,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('SharedReplyContext').item.json, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}",
+        "jsonOutput": "={{ (function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('SharedReplyContext').item.json, [$('WorkflowConfig').item.json.customerEmail,$('WorkflowConfig').item.json.receiverEmail]) }}",
         "options": {}
       },
       "id": "afe59259-7762-471d-ba7d-9dd79f652d53",
@@ -780,7 +777,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function verifiedDraft(source, saved, readback, confirmDraft) {\n  if (typeof source.reply_body !== 'string' || !source.reply_body.trim()) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  const result = confirmDraft(source, saved, readback);\n  const extras = [readback.cc, readback.bcc].some(v =>\n    typeof v === 'string' ? !!v.trim() : Array.isArray(v?.value) && v.value.length > 0);\n  if (result.draft_confirmed !== true || extras ||\n      (Array.isArray(readback.labelIds) && !readback.labelIds.includes('DRAFT'))) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  return result;\n})((function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('DraftToConfirm').item.json.source,[\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]),$('DraftToConfirm').item.json.saved,$('ReadSavedDraft').item.json,(function confirmDraft(source, saved, readback) {\n  if (!saved.id || !saved.message?.id || saved.message.threadId !== source.thread_id ||\n      readback.id !== saved.id || readback.messageId !== saved.message.id || readback.threadId !== source.thread_id ||\n      readback.subject !== source.subject || readback.text?.trim() !== source.reply_body.trim() ||\n      readback.to?.value?.length !== 1 || readback.to.value[0].address?.trim().toLowerCase() !== source.recipient) {\n    return {...source, route:'fatal', reason:'draft_confirmation_failed_inspect_before_retry', draft_confirmed:false};\n  }\n  return {...source, draft_id: saved.id, draft_message_id: saved.message.id, draft_confirmed: true};\n})) }}",
+        "jsonOutput": "={{ (function verifiedDraft(source, saved, readback, confirmDraft) {\n  if (typeof source.reply_body !== 'string' || !source.reply_body.trim()) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  const result = confirmDraft(source, saved, readback);\n  const extras = [readback.cc, readback.bcc].some(v =>\n    typeof v === 'string' ? !!v.trim() : Array.isArray(v?.value) && v.value.length > 0);\n  if (result.draft_confirmed !== true || extras ||\n      (Array.isArray(readback.labelIds) && !readback.labelIds.includes('DRAFT'))) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  return result;\n})((function saveGate(source, allowlist) {\n  return allowlist.includes(source.recipient) && typeof source.recipient === 'string' &&\n    source.recipient === source.recipient.trim().toLowerCase()\n    ? source : {...source, reply_body: null, route: 'review', reason: 'invalid_recipient'};\n})($('DraftToConfirm').item.json.source,[$('WorkflowConfig').item.json.customerEmail,$('WorkflowConfig').item.json.receiverEmail]),$('DraftToConfirm').item.json.saved,$('ReadSavedDraft').item.json,(function confirmDraft(source, saved, readback) {\n  if (!saved.id || !saved.message?.id || saved.message.threadId !== source.thread_id ||\n      readback.id !== saved.id || readback.messageId !== saved.message.id || readback.threadId !== source.thread_id ||\n      readback.subject !== source.subject || readback.text?.trim() !== source.reply_body.trim() ||\n      readback.to?.value?.length !== 1 || readback.to.value[0].address?.trim().toLowerCase() !== source.recipient) {\n    return {...source, route:'fatal', reason:'draft_confirmation_failed_inspect_before_retry', draft_confirmed:false};\n  }\n  return {...source, draft_id: saved.id, draft_message_id: saved.message.id, draft_confirmed: true};\n})) }}",
         "options": {}
       },
       "id": "a7d108b1-b359-4f57-ac0c-b673a087b4c7",
@@ -797,9 +794,7 @@
       "parameters": {
         "operation": "addLabels",
         "messageId": "={{ $('ConfirmSavedDraft').item.json.message_id }}",
-        "labelIds": [
-          "<TRIAGED_LABEL_ID>"
-        ]
+        "labelIds": "={{ [$('WorkflowConfig').item.json.triagedLabelId] }}"
       },
       "id": "81cf1988-65cc-4401-85d5-f6c61567ba38",
       "name": "MarkConfirmedDraftTriaged",
@@ -831,10 +826,7 @@
       "parameters": {
         "operation": "addLabels",
         "messageId": "={{ $('ManualReviewReason').item.json.message_id }}",
-        "labelIds": [
-          "<REVIEW_LABEL_ID>",
-          "<TRIAGED_LABEL_ID>"
-        ]
+        "labelIds": "={{ [$('WorkflowConfig').item.json.reviewLabelId, $('WorkflowConfig').item.json.triagedLabelId] }}"
       },
       "id": "163abf1b-937c-4670-9fd8-ae00f8682a3c",
       "name": "ApplyReviewAndTriagedLabels",
@@ -1026,7 +1018,7 @@
     {
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function validateRequestInput(source, message, allowlist) {\n  const addresses = message.from?.value;\n  const candidate = Array.isArray(addresses) && addresses.length === 1 && typeof addresses[0].address === 'string'\n    ? addresses[0].address.trim().toLowerCase() : '';\n  const valid = candidate.length <= 254 && /^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(candidate)\n    && candidate.split('@')[0].length <= 64 && candidate.split('@')[1].split('.').every(label => label.length <= 63);\n  if (!valid || !allowlist.includes(candidate)) return {...source, route: 'review', reason: 'invalid_recipient'};\n  source.recipient = candidate;\n  if (!source.cleaned_question) return {...source, route: 'review', reason: 'empty_input'};\n  return source;\n})($('CleanCustomerQuestion').item.json, $('OwnedRequest').item.json.message, [\"controlled-sender@example.com\",\"controlled-receiver@example.com\"]) }}",
+        "jsonOutput": "={{ (function validateRequestInput(source, message, allowlist) {\n  const addresses = message.from?.value;\n  const candidate = Array.isArray(addresses) && addresses.length === 1 && typeof addresses[0].address === 'string'\n    ? addresses[0].address.trim().toLowerCase() : '';\n  const valid = candidate.length <= 254 && /^[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+(?:\\.[a-z0-9!#$%&'*+\\-/=?^_`{|}~]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(candidate)\n    && candidate.split('@')[0].length <= 64 && candidate.split('@')[1].split('.').every(label => label.length <= 63);\n  if (!valid || !allowlist.includes(candidate)) return {...source, route: 'review', reason: 'invalid_recipient'};\n  source.recipient = candidate;\n  if (!source.cleaned_question) return {...source, route: 'review', reason: 'empty_input'};\n  return source;\n})($('CleanCustomerQuestion').item.json, $('OwnedRequest').item.json.message, [$('WorkflowConfig').item.json.customerEmail,$('WorkflowConfig').item.json.receiverEmail]) }}",
         "options": {}
       },
       "id": "t015-ValidateRequestInput",
@@ -1399,12 +1391,60 @@
       "parameters": {}
     },
     {
+      "id": "t018-WorkflowConfig",
+      "name": "WorkflowConfig",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        960,
+        1280
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-customer-email",
+              "name": "customerEmail",
+              "value": "controlled-sender@example.com",
+              "type": "string"
+            },
+            {
+              "id": "cfg-receiver-email",
+              "name": "receiverEmail",
+              "value": "controlled-receiver@example.com",
+              "type": "string"
+            },
+            {
+              "id": "cfg-input-label-id",
+              "name": "inputLabelId",
+              "value": "<INPUT_LABEL_ID>",
+              "type": "string"
+            },
+            {
+              "id": "cfg-triaged-label-id",
+              "name": "triagedLabelId",
+              "value": "<TRIAGED_LABEL_ID>",
+              "type": "string"
+            },
+            {
+              "id": "cfg-review-label-id",
+              "name": "reviewLabelId",
+              "value": "<REVIEW_LABEL_ID>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Centralized setup fields: update customerEmail, receiverEmail, inputLabelId, triagedLabelId, and reviewLabelId here."
+    },
+    {
       "id": "t018-ReadMailboxIdentity",
       "name": "ReadMailboxIdentity",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        960,
+        1280,
         1280
       ],
       "parameters": {
@@ -1424,12 +1464,12 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1280,
+        1600,
         1280
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (() => { const profile=$('ReadMailboxIdentity').item.json, input=$('AuthorizedSourceRequest').item.json; if(profile.emailAddress!==\"controlled-receiver@example.com\" || !/^[a-f0-9]+$/i.test(input.message.id||'') || !/^[a-f0-9]+$/i.test(input.message.threadId||'') || (input.request && input.message.id!==input.request.sourceMessageId)) throw new Error('AuthenticatedMailboxOrSourceMismatch'); if(input.mode==='intake' && (!Array.isArray(input.message.labelIds) || ![\"<INPUT_LABEL_ID>\"].every(id=>input.message.labelIds.includes(id)) || input.message.labelIds.some(id=>['SPAM','TRASH','DRAFT'].includes(id)))) throw new Error('AuthorizedIntakeSourceRequired'); return {...input,mailbox:profile.emailAddress,candidate:\"T018-805a5da3088cb2ccd31d\"}; })() }}",
+        "jsonOutput": "={{ (() => { const profile=$('ReadMailboxIdentity').item.json, input=$('AuthorizedSourceRequest').item.json, config=$('WorkflowConfig').item.json; if(profile.emailAddress!==config.receiverEmail || !/^[a-f0-9]+$/i.test(input.message.id||'') || !/^[a-f0-9]+$/i.test(input.message.threadId||'') || (input.request && input.message.id!==input.request.sourceMessageId)) throw new Error('AuthenticatedMailboxOrSourceMismatch'); if(input.mode==='intake' && (!Array.isArray(input.message.labelIds) || ![config.inputLabelId].every(id=>input.message.labelIds.includes(id)) || input.message.labelIds.some(id=>['SPAM','TRASH','DRAFT'].includes(id)))) throw new Error('AuthorizedIntakeSourceRequired'); return {...input,mailbox:profile.emailAddress,candidate:\"T018-805a5da3088cb2ccd31d\"}; })() }}",
         "options": {}
       }
     },
@@ -1439,7 +1479,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1600,
+        1920,
         1280
       ],
       "parameters": {
@@ -1471,7 +1511,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.7,
       "position": [
-        1920,
+        2240,
         1280
       ],
       "parameters": {
@@ -1602,7 +1642,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function stoppedExecution(evidence, execution, mainId) {\n  const r = evidence.record;\n  const terminal = ['success','error','canceled','crashed'];\n  if (String(execution.id) !== r.execution_id || execution.workflowId !== mainId) {\n    throw new Error('PreviousExecutionIdentityMismatchNeedsInspection');\n  }\n  if (!terminal.includes(execution.status)) {\n    return {...evidence, oldExecutionStopped: false, result: 'OwnershipConflict'};\n  }\n  if (!execution.stoppedAt || evidence.request.writesSettled !== true) {\n    throw new Error('PreviousExecutionOrOutstandingWritesNotReconciled');\n  }\n  return {...evidence, oldExecutionStopped: true};\n})($('CheckRecoveryRequest').item.json,$('ReadPreviousExecution').item.json,\"<MAIN_WORKFLOW_ID>\") }}",
+        "jsonOutput": "={{ (function stoppedExecution(evidence, execution, mainId) {\n  const r = evidence.record;\n  const terminal = ['success','error','canceled','crashed'];\n  if (String(execution.id) !== r.execution_id || execution.workflowId !== mainId) {\n    throw new Error('PreviousExecutionIdentityMismatchNeedsInspection');\n  }\n  if (!terminal.includes(execution.status)) {\n    return {...evidence, oldExecutionStopped: false, result: 'OwnershipConflict'};\n  }\n  if (!execution.stoppedAt || evidence.request.writesSettled !== true) {\n    throw new Error('PreviousExecutionOrOutstandingWritesNotReconciled');\n  }\n  return {...evidence, oldExecutionStopped: true};\n})($('CheckRecoveryRequest').item.json,$('ReadPreviousExecution').item.json,String($workflow.id)) }}",
         "options": {}
       }
     },
@@ -1761,7 +1801,7 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        2240,
+        2560,
         1280
       ],
       "parameters": {}
@@ -1772,7 +1812,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2560,
+        2880,
         1280
       ],
       "parameters": {
@@ -1804,7 +1844,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2880,
+        3200,
         1648
       ],
       "parameters": {
@@ -1819,7 +1859,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2880,
+        3200,
         1280
       ],
       "parameters": {
@@ -1834,7 +1874,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        3200,
+        3520,
         1280
       ],
       "parameters": {
@@ -2136,7 +2176,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function verifiedLabels(message, source, required) {\n  const labels = Array.isArray(message.labelIds) ? message.labelIds :\n    Array.isArray(message.labels) ? message.labels.map(label => typeof label === 'string' ? label : label?.id) : [];\n  if (message.id !== source.message_id || message.threadId !== source.thread_id ||\n      !required.every(id => labels.includes(id))) {\n    throw new Error('SourceLabelsNotVerified');\n  }\n  return {...source, labels_verified: true};\n})($('ReadFinalSourceLabels').item.json,$('OutcomeToVerify').item.json,($('OutcomeToVerify').item.json.outcome==='manual_review'?[\"<REVIEW_LABEL_ID>\",\"<TRIAGED_LABEL_ID>\"]:[\"<TRIAGED_LABEL_ID>\"])) }}",
+        "jsonOutput": "={{ (function verifiedLabels(message, source, required) {\n  const labels = Array.isArray(message.labelIds) ? message.labelIds :\n    Array.isArray(message.labels) ? message.labels.map(label => typeof label === 'string' ? label : label?.id) : [];\n  if (message.id !== source.message_id || message.threadId !== source.thread_id ||\n      !required.every(id => labels.includes(id))) {\n    throw new Error('SourceLabelsNotVerified');\n  }\n  return {...source, labels_verified: true};\n})($('ReadFinalSourceLabels').item.json,$('OutcomeToVerify').item.json,($('OutcomeToVerify').item.json.outcome==='manual_review'?[$('WorkflowConfig').item.json.reviewLabelId,$('WorkflowConfig').item.json.triagedLabelId]:[$('WorkflowConfig').item.json.triagedLabelId])) }}",
         "options": {}
       },
       "onError": "continueErrorOutput"
@@ -3107,6 +3147,17 @@
       ]
     },
     "AuthorizedSourceRequest": {
+      "main": [
+        [
+          {
+            "node": "WorkflowConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WorkflowConfig": {
       "main": [
         [
           {

@@ -19,12 +19,12 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1200,
+        1360,
         96
       ],
       "parameters": {
-        "fromEmail": "<CUSTOMER_EMAIL>",
-        "toEmail": "<RECEIVER_EMAIL>",
+        "fromEmail": "={{ $('SenderConfig').first().json.customerEmail }}",
+        "toEmail": "={{ $('SenderConfig').first().json.receiverEmail }}",
         "subject": "={{ $('ValidateFixture').item.json.subject }}",
         "emailFormat": "text",
         "text": "={{ $('ValidateFixture').item.json.body }}",
@@ -39,11 +39,11 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        1200,
+        1360,
         336
       ],
       "parameters": {
-        "sendTo": "<RECEIVER_EMAIL>",
+        "sendTo": "={{ $('SenderConfig').first().json.receiverEmail }}",
         "subject": "={{ $('ValidateFixture').item.json.subject }}",
         "emailType": "text",
         "message": "={{ $('ValidateFixture').item.json.body }}",
@@ -99,10 +99,40 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        480,
+        448,
         240
       ],
       "parameters": {}
+    },
+    {
+      "id": "t016-SenderConfig",
+      "name": "SenderConfig",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        672,
+        240
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-sender-customer-email",
+              "name": "customerEmail",
+              "value": "<CUSTOMER_EMAIL>",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sender-receiver-email",
+              "name": "receiverEmail",
+              "value": "<RECEIVER_EMAIL>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Centralized sender setup: update customerEmail and receiverEmail here."
     },
     {
       "id": "t016-node-6",
@@ -110,7 +140,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        720,
+        896,
         240
       ],
       "parameters": {
@@ -118,7 +148,7 @@
         "jsonOutput": "={{ (() => { const v=$('FixtureInput').item.json; if (!['customer','self'].includes(v.senderMode)) return {...v,senderMode:'invalid',error:'Invalid senderMode; no message sent'}; if(typeof v.subject!=='string'||!/^OSRD SMOKE [A-Za-z ]+$/.test(v.subject)||v.subject.length>180) return {...v,senderMode:'invalid',error:'Expected alphabetic OSRD SMOKE subject'}; if(typeof v.body!=='string'||!v.body.trim()||v.body.length>4000) return {...v,senderMode:'invalid',error:'Expected nonempty controlled fixture body'}; return {subject:v.subject,body:v.body,senderMode:v.senderMode}; })() }}",
         "options": {}
       },
-      "notes": "Fixed authenticated accounts and fixed destination are configured on send nodes. Reject invalid input before either send."
+      "notes": "Fixed authenticated accounts and fixed destination are configured in SenderConfig. Reject invalid input before either send."
     },
     {
       "id": "t016-node-7",
@@ -126,7 +156,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.4,
       "position": [
-        960,
+        1120,
         240
       ],
       "parameters": {
@@ -192,7 +222,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1200,
+        1360,
         608
       ],
       "parameters": {
@@ -205,7 +235,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1440,
+        1600,
         96
       ],
       "parameters": {
@@ -220,7 +250,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        1440,
+        1600,
         336
       ],
       "parameters": {
@@ -290,6 +320,17 @@
       "main": [
         [
           {
+            "node": "SenderConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SenderConfig": {
+      "main": [
+        [
+          {
             "node": "ValidateFixture",
             "type": "main",
             "index": 0
@@ -350,6 +391,7 @@
         "t016-node-1",
         "t016-node-2",
         "t016-node-5",
+        "t016-SenderConfig",
         "t016-node-6",
         "t016-node-7",
         "t016-node-8",

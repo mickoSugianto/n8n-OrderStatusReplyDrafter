@@ -22,8 +22,46 @@
         0
       ],
       "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={{ {\"sourceMessageId\":\"\",\"expectedOwnerToken\":\"\",\"writesSettled\":false,\"note\":\"\",\"acceptChangedVersion\":false,\"inspectedDraftId\":\"\"} }}",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "req-source-message-id",
+              "name": "sourceMessageId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "req-expected-owner-token",
+              "name": "expectedOwnerToken",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "req-writes-settled",
+              "name": "writesSettled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "req-note",
+              "name": "note",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "req-accept-changed-version",
+              "name": "acceptChangedVersion",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "req-inspected-draft-id",
+              "name": "inspectedDraftId",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
         "options": {}
       }
     },
@@ -40,7 +78,7 @@
         "source": "database",
         "workflowId": {
           "__rl": true,
-          "mode": "id",
+          "mode": "list",
           "value": "<MAIN_WORKFLOW_ID>"
         },
         "mode": "each",

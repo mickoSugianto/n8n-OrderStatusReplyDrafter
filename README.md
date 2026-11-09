@@ -121,7 +121,7 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
    - `order-status-reply-drafter/demo-input`
    - `order-status-reply-drafter/triaged`
    - `order-status-reply-drafter/needs-review`
-5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes and HTTP profile read). Replace all `<...>` placeholders and reserved example addresses (`controlled-sender@example.com`, `controlled-receiver@example.com`) using [`docs/rebinding-map.md`](docs/rebinding-map.md).
+5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes and HTTP profile read). Fill in the 5 fields on `WorkflowConfig` (`customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, `reviewLabelId`) and select the Sheet and sub-workflows from the dropdowns on `ReadAllOrders`, `GetOrderDeterministically`, and `RecoverThroughMain` using [`docs/rebinding-map.md`](docs/rebinding-map.md).
 6. **Publish Callable Sub-Workflow:** Validate and publish `GetOrder` before activating the main workflow.
 7. **Supervised Test:** Send a test email from your controlled sender with the `demo-input` label applied, activate `DraftOrderStatusReply` for one supervised poll cycle, verify the resulting Gmail draft, labels, and `Completed` ledger row, then deactivate the main workflow.
 
