@@ -17,7 +17,7 @@ Use this checklist alongside:
 | --- | --- | --- | --- |
 | **GetOrder** | `workflows/get-order.json` | `ReadAllOrders` (dropdowns) | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
 | **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `WorkflowConfig` (5 form fields), `GetOrderDeterministically` (dropdown) | `customerEmail`, `receiverEmail`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>`, `<GET_ORDER_WORKFLOW_ID>` |
-| **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `RecoverThroughMain` (dropdown) | `<MAIN_WORKFLOW_ID>` |
+| **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `SelectUnresolvedRequest` (`receiverEmail` field), `RecoverThroughMain` (dropdown) | `receiverEmail` (`controlled-receiver@example.com`), `<MAIN_WORKFLOW_ID>` |
 
 ### Optional Testing & Evaluation Workflows
 
@@ -40,6 +40,7 @@ Replace all placeholder email addresses in `WorkflowConfig` and your Google Shee
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 - **`controlled-receiver@example.com` / `<RECEIVER_EMAIL>`** → Replace with your authenticated support receiver Gmail address in:
   - `WorkflowConfig` (`receiverEmail` field) in `workflows/main-workflow.json` (used for both receiver mailbox verification and the allowlists supporting the receiver-to-self sender-mismatch test case `S08`)
+  - `SelectUnresolvedRequest` (`receiverEmail` field) in `workflows/recover-order-status-request.json` (used by `FindRecoverableRequests` to scope automated recovery sweeps to your mailbox)
   - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
 
 ---
@@ -48,8 +49,10 @@ Replace all placeholder email addresses in `WorkflowConfig` and your Google Shee
 
 Every credentialed node must be explicitly bound and verified in n8n (do not rely on default credential auto-selection):
 
-- **Gmail OAuth2 (`gmailOAuth2`):** All Gmail trigger, message read, draft create/get, and label nodes—**plus** the `ReadMailboxIdentity` HTTP Request node (uses predefined Gmail OAuth2 credential).
-- **Postgres (`postgres`):** Bind `OrderStatusLedger` on all Postgres ledger nodes in `DraftOrderStatusReply`.
+- **Gmail OAuth2 (`gmailOAuth2`):** All Gmail trigger, message read, thread read, draft list/create/get, and label nodes in `DraftOrderStatusReply` (`ReceivePendingDemo`, `ReadRecoverySource`, `ReadRecoveryThread`, `ListMailboxDrafts`, `ReadInspectedDraft`, `SaveReviewDraft`, `ReadSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, `ReadFinalSourceLabels`)—**plus** the `ReadMailboxIdentity` HTTP Request node (uses predefined Gmail OAuth2 credential).
+- **Postgres (`postgres`):** Bind `OrderStatusLedger` on:
+  - All 10 Postgres ledger nodes in `DraftOrderStatusReply` (`ReadRecoveryRecord`, `QuarantineRecoveryRequest`, `TransferRecoveryOwnership`, `ClaimSourceAtomically`, `RecordDraftIntent`, `RecordSavedDraft`, `RecordDraftLabelsPending`, `RecordReviewLabelsPending`, `CompleteLedger`, `RecordUnfinishedWork`)
+  - `FindRecoverableRequests` in `RecoverOrderStatusRequest`
 - **Google Sheets OAuth2 (`googleSheetsOAuth2Api`):** `ReadAllOrders` in `GetOrder` (and the readiness check in the optional regression runner).
 - **Groq API (`groqApi`):** Both `GroqExtractionModel` and `GroqDraftingModel` subnodes (and in `EvaluateOrderStatusModels` if running model evals).
 - **OpenRouter API (`openRouterApi`):** Both `OpenRouterExtractionModel` and `OpenRouterDraftingModel` subnodes.
@@ -60,6 +63,6 @@ Every credentialed node must be explicitly bound and verified in n8n (do not rel
 ## 4. Safety & Readiness Flags
 
 - **Centralized label & email config:** When setting `customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, and `reviewLabelId` in `WorkflowConfig`, all downstream label and allowlist nodes (`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, `ConfirmSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, and `VerifyFinalSourceLabels`) read from `WorkflowConfig` automatically. *(Note: `inputLabelId`, `triagedLabelId`, and `reviewLabelId` must be the internal Gmail IDs such as `Label_1`, `Label_2`, `Label_3`—not the human-readable path strings; see Setup Guide Step 6.2).*
-- **Keep safety gates closed until ready:**
-  - In `RecoverOrderStatusRequest`, leave `writesSettled: false` and identifiers blank until you are actively recovering a specific inspected request.
+- **Centralized recovery sweep & manual override config (`SelectUnresolvedRequest`):** In `RecoverOrderStatusRequest`, set `receiverEmail` to match `WorkflowConfig.receiverEmail` and keep default sweep bounds (`cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`). Leave manual override fields (`sourceMessageId: ""`, `expectedOwnerToken: ""`, `writesSettled: false`, `note: ""`, `acceptChangedVersion: false`, `inspectedDraftId: ""`) blank/false unless performing a manual override via `StartRecovery`.
+- **Keep test runner safety gates closed until ready:**
   - In `RunOrderStatusRegressionTest`, leave `arrivalFilterConfirmed`, `apiCredentialReady`, and `runEnabled` set to `false` until all E2E setup steps are verified.

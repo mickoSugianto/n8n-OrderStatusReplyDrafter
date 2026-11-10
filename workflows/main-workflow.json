@@ -1362,7 +1362,8 @@
           "downloadAttachments": false
         }
       },
-      "retryOnFail": false
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "id": "t018-PrepareRecoveryEnvelope",
@@ -1469,7 +1470,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (() => { const profile=$('ReadMailboxIdentity').item.json, input=$('AuthorizedSourceRequest').item.json, config=$('WorkflowConfig').item.json; if(profile.emailAddress!==config.receiverEmail || !/^[a-f0-9]+$/i.test(input.message.id||'') || !/^[a-f0-9]+$/i.test(input.message.threadId||'') || (input.request && input.message.id!==input.request.sourceMessageId)) throw new Error('AuthenticatedMailboxOrSourceMismatch'); if(input.mode==='intake' && (!Array.isArray(input.message.labelIds) || ![config.inputLabelId].every(id=>input.message.labelIds.includes(id)) || input.message.labelIds.some(id=>['SPAM','TRASH','DRAFT'].includes(id)))) throw new Error('AuthorizedIntakeSourceRequired'); return {...input,mailbox:profile.emailAddress,candidate:\"T018-805a5da3088cb2ccd31d\"}; })() }}",
+        "jsonOutput": "={{ (() => { const profile=$('ReadMailboxIdentity').item.json, input=$('AuthorizedSourceRequest').item.json, config=$('WorkflowConfig').item.json; const recoveryReadError=input.mode==='recovery' && Boolean(input.message?.error) && !input.message?.id && /^[a-f0-9]+$/i.test(input.request?.sourceMessageId||''); if(profile.emailAddress!==config.receiverEmail || (!recoveryReadError && (!/^[a-f0-9]+$/i.test(input.message?.id||'') || !/^[a-f0-9]+$/i.test(input.message?.threadId||'') || (input.request && input.message.id!==input.request.sourceMessageId)))) throw new Error('AuthenticatedMailboxOrSourceMismatch'); if(input.mode==='intake' && (!Array.isArray(input.message.labelIds) || ![config.inputLabelId].every(id=>input.message.labelIds.includes(id)) || input.message.labelIds.some(id=>['SPAM','TRASH','DRAFT'].includes(id)))) throw new Error('AuthorizedIntakeSourceRequired'); return {...input,mailbox:profile.emailAddress,sourceMessageId:input.message?.id||input.request?.sourceMessageId,candidate:\"T018-805a5da3088cb2ccd31d\"}; })() }}",
         "options": {}
       }
     },
@@ -1540,7 +1541,7 @@
         "operation": "executeQuery",
         "query": "SELECT (SELECT to_jsonb(r) FROM public.order_status_ledger r WHERE mailbox=$1::jsonb->>'mailbox' AND source_message_id=$1::jsonb->>'source_message_id') AS record",
         "options": {
-          "queryReplacement": "={{ [JSON.stringify(({mailbox:$('VerifyMailboxAndSource').item.json.mailbox,source_message_id:$('VerifyMailboxAndSource').item.json.message.id}))] }}",
+          "queryReplacement": "={{ [JSON.stringify(({mailbox:$('VerifyMailboxAndSource').item.json.mailbox,source_message_id:$('VerifyMailboxAndSource').item.json.message?.id||$('VerifyMailboxAndSource').item.json.request?.sourceMessageId}))] }}",
           "connectionTimeout": 15,
           "queryBatching": "independently"
         }
@@ -1558,40 +1559,76 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function recoveryDecision(record, request, source, candidate) {\n  let result = 'Ready';\n  if (!record) result = 'LedgerRecordNotFound';\n  else if (record.source_message_id !== source.id || record.thread_id !== source.threadId) result = 'SourceMismatchNeedsInspection';\n  else if (record.phase === 'Completed') result = 'AlreadyCompleted';\n  else if (record.owner_token !== request.expectedOwnerToken) result = 'OwnershipConflict';\n  else if (request.writesSettled !== true || typeof request.note !== 'string' || !request.note.trim()) result = 'OperatorInspectionRequired';\n  else if (record.candidate_version !== candidate && request.acceptChangedVersion !== true) result = 'CandidateVersionMismatch';\n  else if (record.phase === 'DraftIntentRecorded' && !request.inspectedDraftId) result = 'UncertainWriteNeedsInspection';\n  return {record, request, result, proceed: result === 'Ready'};\n})($('ReadRecoveryRecord').item.json.record,$('VerifyMailboxAndSource').item.json.request,$('VerifyMailboxAndSource').item.json.message,\"T018-805a5da3088cb2ccd31d\") }}",
+        "jsonOutput": "={{ (function recoveryDecision(record, request, source, candidate) {\n  const mode = request?.mode === 'auto' ? 'auto' : 'manual';\n  if (source?.error) {\n    return {\n      record,\n      request,\n      result: 'SourceReadFailedNeedsInspection',\n      proceed: false,\n      quarantine: true,\n      error: typeof source.error === 'string' ? source.error : source.error?.message || source.message || 'SourceReadFailedNeedsInspection'\n    };\n  }\n  if (!record) {\n    return {record, request, result: 'LedgerRecordNotFound', proceed: false, quarantine: false};\n  }\n  if (!source || record.source_message_id !== source.id || record.thread_id !== source.threadId) {\n    return {record, request, result: 'SourceMismatchNeedsInspection', proceed: false, quarantine: true, error: 'SourceMismatchNeedsInspection'};\n  }\n  if (record.phase === 'Completed') {\n    return {record, request, result: 'AlreadyCompleted', proceed: false, quarantine: false};\n  }\n  if (record.owner_token !== request?.expectedOwnerToken) {\n    return {record, request, result: 'OwnershipConflict', proceed: false, quarantine: false};\n  }\n  if (mode === 'auto' && record.status === 'NeedsInspection') {\n    return {record, request, result: 'AlreadyQuarantined', proceed: false, quarantine: false};\n  }\n  if (mode === 'auto' && Number(record.recovery_attempts) >= 1 && record.status !== 'Running') {\n    return {record, request, result: 'MaxAttemptsReached', proceed: false, quarantine: true, error: 'MaxAttemptsReached'};\n  }\n  if (mode !== 'auto' && (request?.writesSettled !== true || typeof request?.note !== 'string' || !request.note.trim())) {\n    return {record, request, result: 'OperatorInspectionRequired', proceed: false, quarantine: false};\n  }\n  if (record.candidate_version !== candidate && request?.acceptChangedVersion !== true) {\n    return {\n      record,\n      request,\n      result: 'CandidateVersionMismatch',\n      proceed: false,\n      quarantine: mode === 'auto',\n      error: mode === 'auto' ? 'CandidateVersionMismatch' : undefined\n    };\n  }\n  if (mode !== 'auto' && record.phase === 'DraftIntentRecorded' && !request?.inspectedDraftId) {\n    return {record, request, result: 'UncertainWriteNeedsInspection', proceed: false, quarantine: false};\n  }\n  return {record, request, result: 'Ready', proceed: true, quarantine: false};\n})($('ReadRecoveryRecord').item.json.record,$('VerifyMailboxAndSource').item.json.request,$('VerifyMailboxAndSource').item.json.message,\"T018-805a5da3088cb2ccd31d\") }}",
         "options": {}
       }
     },
     {
       "id": "t018-RecoveryMayProceed",
       "name": "RecoveryMayProceed",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
       "position": [
         640,
         448
       ],
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
+        "mode": "rules",
+        "rules": {
+          "values": [
             {
-              "leftValue": "={{ $('CheckRecoveryRequest').item.json.proceed===true }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
+              "renameOutput": true,
+              "outputKey": "Proceed",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('CheckRecoveryRequest').item.json.proceed === true }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "renameOutput": true,
+              "outputKey": "ReturnDecision",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('CheckRecoveryRequest').item.json.proceed === false && $('CheckRecoveryRequest').item.json.quarantine !== true }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
               }
             }
-          ],
-          "combinator": "and"
+          ]
         },
-        "options": {}
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Quarantine",
+          "allMatchingOutputs": false
+        }
       }
     },
     {
@@ -1605,7 +1642,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ ({outcome:$('CheckRecoveryRequest').item.json.result,sourceMessageId:$('VerifyMailboxAndSource').item.json.message.id,phase:$('CheckRecoveryRequest').item.json.record?.phase||null,instructions:'Inspect the exact source/draft and prior execution. No new draft was authorized. Supply an inspected draft ID for uncertain-write adoption; no force/reset is available.'}) }}",
+        "jsonOutput": "={{ ({outcome:$('CheckRecoveryRequest').item.json.result,sourceMessageId:$('VerifyMailboxAndSource').item.json.message?.id||$('VerifyMailboxAndSource').item.json.request?.sourceMessageId,phase:$('CheckRecoveryRequest').item.json.record?.phase||null,instructions:'Inspect the exact source/draft and prior execution. No new draft was authorized. Supply an inspected draft ID for uncertain-write adoption; no force/reset is available.'}) }}",
         "options": {}
       }
     },
@@ -1629,7 +1666,8 @@
           "timeout": 15000
         }
       },
-      "retryOnFail": false
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "id": "t018-VerifyPreviousExecutionStopped",
@@ -1642,7 +1680,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (function stoppedExecution(evidence, execution, mainId) {\n  const r = evidence.record;\n  const terminal = ['success','error','canceled','crashed'];\n  if (String(execution.id) !== r.execution_id || execution.workflowId !== mainId) {\n    throw new Error('PreviousExecutionIdentityMismatchNeedsInspection');\n  }\n  if (!terminal.includes(execution.status)) {\n    return {...evidence, oldExecutionStopped: false, result: 'OwnershipConflict'};\n  }\n  if (!execution.stoppedAt || evidence.request.writesSettled !== true) {\n    throw new Error('PreviousExecutionOrOutstandingWritesNotReconciled');\n  }\n  return {...evidence, oldExecutionStopped: true};\n})($('CheckRecoveryRequest').item.json,$('ReadPreviousExecution').item.json,String($workflow.id)) }}",
+        "jsonOutput": "={{ (function stoppedExecution(evidence, execution, mainId, nowMs = Date.now()) {\n  const r = evidence.record;\n  const req = evidence.request || {};\n  const mode = req.mode === 'auto' ? 'auto' : 'manual';\n  const terminal = ['success', 'error', 'canceled', 'crashed'];\n  if (!execution || execution.error || String(execution.id) !== r.execution_id || execution.workflowId !== mainId) {\n    return {\n      ...evidence,\n      oldExecutionStopped: false,\n      result: 'PreviousExecutionMissingOrMismatchNeedsInspection',\n      quarantine: true,\n      error: 'PreviousExecutionMissingOrMismatchNeedsInspection'\n    };\n  }\n  if (!terminal.includes(execution.status)) {\n    const startedMs = Date.parse(execution.startedAt || r.updated_at || r.created_at);\n    if (Number.isFinite(startedMs) && nowMs - startedMs >= 600000) {\n      return {\n        ...evidence,\n        oldExecutionStopped: false,\n        result: 'PreviousExecutionTimedOutNeedsInspection',\n        quarantine: true,\n        error: 'PreviousExecutionTimedOutNeedsInspection'\n      };\n    }\n    return {...evidence, oldExecutionStopped: false, result: 'OwnershipConflict', quarantine: false};\n  }\n  if (!execution.stoppedAt || !Number.isFinite(Date.parse(execution.stoppedAt))) {\n    return {\n      ...evidence,\n      oldExecutionStopped: false,\n      result: 'PreviousExecutionOrOutstandingWritesNotReconciled',\n      quarantine: true,\n      error: 'PreviousExecutionOrOutstandingWritesNotReconciled'\n    };\n  }\n  if (mode === 'auto' && Number(r.recovery_attempts) >= 1) {\n    return {\n      ...evidence,\n      oldExecutionStopped: true,\n      result: 'MaxAutoRecoveryAttemptsExhaustedAfterCrash',\n      quarantine: true,\n      error: 'MaxAutoRecoveryAttemptsExhaustedAfterCrash'\n    };\n  }\n  if (mode === 'auto') {\n    const settleWindowMs = Math.max(Number(req.settleWindowMs) || 60000, 30000);\n    if (nowMs - Date.parse(execution.stoppedAt) < settleWindowMs) {\n      return {...evidence, oldExecutionStopped: false, result: 'WriteSettlePending', quarantine: false};\n    }\n    return {\n      ...evidence,\n      request: {\n        ...req,\n        mode: 'auto',\n        writesSettled: true,\n        note: typeof req.note === 'string' && req.note.trim()\n          ? req.note.trim()\n          : 'Auto-recovery verified stopped execution ' + execution.id + ' (' + execution.status + ') after settle window.'\n      },\n      oldExecutionStopped: true,\n      result: 'Ready',\n      quarantine: false\n    };\n  }\n  if (req.writesSettled !== true) {\n    return {\n      ...evidence,\n      oldExecutionStopped: false,\n      result: 'PreviousExecutionOrOutstandingWritesNotReconciled',\n      quarantine: false,\n      error: 'PreviousExecutionOrOutstandingWritesNotReconciled'\n    };\n  }\n  return {...evidence, oldExecutionStopped: true, result: 'Ready', quarantine: false};\n})($('CheckRecoveryRequest').item.json,$('ReadPreviousExecution').item.json,String($workflow.id)) }}",
         "options": {}
       }
     },
@@ -1661,6 +1699,52 @@
           "values": [
             {
               "renameOutput": true,
+              "outputKey": "Quarantine",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.quarantine === true }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "renameOutput": true,
+              "outputKey": "ReconcileThreadAndDrafts",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.oldExecutionStopped === true && $('VerifyPreviousExecutionStopped').item.json.record.phase === 'DraftIntentRecorded' && !Boolean($('VerifyPreviousExecutionStopped').item.json.request?.inspectedDraftId) }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "renameOutput": true,
               "outputKey": "InspectDraft",
               "conditions": {
                 "options": {
@@ -1671,7 +1755,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.oldExecutionStopped===true && ($('VerifyPreviousExecutionStopped').item.json.record.phase==='DraftIntentRecorded')===true }}",
+                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.oldExecutionStopped === true && $('VerifyPreviousExecutionStopped').item.json.record.phase === 'DraftIntentRecorded' && Boolean($('VerifyPreviousExecutionStopped').item.json.request?.inspectedDraftId) }}",
                     "rightValue": true,
                     "operator": {
                       "type": "boolean",
@@ -1694,7 +1778,7 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.oldExecutionStopped===true && ($('VerifyPreviousExecutionStopped').item.json.record.phase==='DraftIntentRecorded')===false }}",
+                    "leftValue": "={{ $('VerifyPreviousExecutionStopped').item.json.oldExecutionStopped === true && $('VerifyPreviousExecutionStopped').item.json.record.phase !== 'DraftIntentRecorded' }}",
                     "rightValue": true,
                     "operator": {
                       "type": "boolean",
@@ -1741,12 +1825,13 @@
       "parameters": {
         "resource": "draft",
         "operation": "get",
-        "messageId": "={{ $('VerifyPreviousExecutionStopped').item.json.request.inspectedDraftId }}",
+        "messageId": "={{ $json.request?.inspectedDraftId || $('VerifyPreviousExecutionStopped').item.json.request.inspectedDraftId }}",
         "options": {
           "downloadAttachments": false
         }
       },
-      "retryOnFail": false
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "id": "t018-VerifyInspectedDraft",
@@ -1759,9 +1844,10 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ (() => { const e=$('VerifyPreviousExecutionStopped').item.json, d=$('ReadInspectedDraft').item.json; const saved={id:e.request.inspectedDraftId,message:{id:d.messageId,threadId:d.threadId} }; const verified=(function verifiedDraft(source, saved, readback, confirmDraft) {\n  if (typeof source.reply_body !== 'string' || !source.reply_body.trim()) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  const result = confirmDraft(source, saved, readback);\n  const extras = [readback.cc, readback.bcc].some(v =>\n    typeof v === 'string' ? !!v.trim() : Array.isArray(v?.value) && v.value.length > 0);\n  if (result.draft_confirmed !== true || extras ||\n      (Array.isArray(readback.labelIds) && !readback.labelIds.includes('DRAFT'))) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  return result;\n})(e.record.intent,saved,d,(function confirmDraft(source, saved, readback) {\n  if (!saved.id || !saved.message?.id || saved.message.threadId !== source.thread_id ||\n      readback.id !== saved.id || readback.messageId !== saved.message.id || readback.threadId !== source.thread_id ||\n      readback.subject !== source.subject || readback.text?.trim() !== source.reply_body.trim() ||\n      readback.to?.value?.length !== 1 || readback.to.value[0].address?.trim().toLowerCase() !== source.recipient) {\n    return {...source, route:'fatal', reason:'draft_confirmation_failed_inspect_before_retry', draft_confirmed:false};\n  }\n  return {...source, draft_id: saved.id, draft_message_id: saved.message.id, draft_confirmed: true};\n})); return {...e,inspectedDraft:verified}; })() }}",
+        "jsonOutput": "={{ (() => { const e=$('VerifyPreviousExecutionStopped').item.json, d=$('ReadInspectedDraft').item.json, draftId=e.request?.inspectedDraftId||d.id; const saved={id:draftId,message:{id:d.messageId,threadId:d.threadId} }; const verified=(function verifiedDraft(source, saved, readback, confirmDraft) {\n  if (typeof source.reply_body !== 'string' || !source.reply_body.trim()) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  const result = confirmDraft(source, saved, readback);\n  const extras = [readback.cc, readback.bcc].some(v =>\n    typeof v === 'string' ? !!v.trim() : Array.isArray(v?.value) && v.value.length > 0);\n  if (result.draft_confirmed !== true || extras ||\n      (Array.isArray(readback.labelIds) && !readback.labelIds.includes('DRAFT'))) {\n    throw new Error('SavedDraftMismatchNeedsInspection');\n  }\n  return result;\n})(e.record.intent,saved,d,(function confirmDraft(source, saved, readback) {\n  if (!saved.id || !saved.message?.id || saved.message.threadId !== source.thread_id ||\n      readback.id !== saved.id || readback.messageId !== saved.message.id || readback.threadId !== source.thread_id ||\n      readback.subject !== source.subject || readback.text?.trim() !== source.reply_body.trim() ||\n      readback.to?.value?.length !== 1 || readback.to.value[0].address?.trim().toLowerCase() !== source.recipient) {\n    return {...source, route:'fatal', reason:'draft_confirmation_failed_inspect_before_retry', draft_confirmed:false};\n  }\n  return {...source, draft_id: saved.id, draft_message_id: saved.message.id, draft_confirmed: true};\n})); return {...e,request:{...e.request,inspectedDraftId:draftId},inspectedDraft:verified}; })() }}",
         "options": {}
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "t018-RecoveryEvidence",
@@ -1788,7 +1874,7 @@
         "operation": "executeQuery",
         "query": "SELECT public.recover_order_status_request($1::jsonb) AS claim",
         "options": {
-          "queryReplacement": "={{ [JSON.stringify((() => { const e=$('RecoveryEvidence').item.json,r=e.record; return {mailbox:r.mailbox,source_message_id:r.source_message_id,expected_owner:r.owner_token,expected_phase:r.phase,expected_status:r.status,old_execution_id:r.execution_id,old_candidate_version:r.candidate_version,owner_token:String($execution.id),execution_id:String($execution.id),candidate_version:\"T018-805a5da3088cb2ccd31d\",old_execution_stopped:e.oldExecutionStopped===true,writes_settled:e.request.writesSettled===true,note:e.request.note,accept_changed_version:e.request.acceptChangedVersion===true,draft_verified:e.inspectedDraft?.draft_confirmed===true,draft_id:e.inspectedDraft?.draft_id||null,draft_message_id:e.inspectedDraft?.draft_message_id||null}; })())] }}",
+          "queryReplacement": "={{ [JSON.stringify((() => { const e=$('RecoveryEvidence').item.json,r=e.record; return {mailbox:r.mailbox,source_message_id:r.source_message_id,expected_owner:r.owner_token,expected_phase:r.phase,expected_status:r.status,old_execution_id:r.execution_id,old_candidate_version:r.candidate_version,owner_token:String($execution.id),execution_id:String($execution.id),candidate_version:\"T018-805a5da3088cb2ccd31d\",mode:e.request?.mode==='auto'?'auto':'manual',old_execution_stopped:e.oldExecutionStopped===true,writes_settled:e.request.writesSettled===true,note:e.request.note,accept_changed_version:e.request.acceptChangedVersion===true,draft_absent_verified:e.draftAbsentVerified===true,draft_verified:e.inspectedDraft?.draft_confirmed===true,draft_id:e.inspectedDraft?.draft_id||null,draft_message_id:e.inspectedDraft?.draft_message_id||null}; })())] }}",
           "connectionTimeout": 15,
           "queryBatching": "independently"
         }
@@ -1949,6 +2035,29 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "renameOutput": true,
+              "outputKey": "DraftIntentRecorded",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('OwnedRequest').item.json.ledger.phase }}",
+                    "rightValue": "DraftIntentRecorded",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -2036,7 +2145,7 @@
         "operation": "executeQuery",
         "query": "SELECT public.checkpoint_order_status_request($1::jsonb) AS record",
         "options": {
-          "queryReplacement": "={{ [JSON.stringify(({mailbox:$('OwnedRequest').item.json.ledger.mailbox,source_message_id:$('OwnedRequest').item.json.ledger.source_message_id,owner_token:$('OwnedRequest').item.json.ledger.owner_token,expected_phase:'Processing',next_phase:'DraftIntentRecorded',intent:{message_id:$('RecheckAllowedRecipient').item.json.message_id,thread_id:$('RecheckAllowedRecipient').item.json.thread_id,subject:$('RecheckAllowedRecipient').item.json.subject,recipient:$('RecheckAllowedRecipient').item.json.recipient,reply_body:$('RecheckAllowedRecipient').item.json.reply_body} }))] }}",
+          "queryReplacement": "={{ [JSON.stringify(({mailbox:$('OwnedRequest').item.json.ledger.mailbox,source_message_id:$('OwnedRequest').item.json.ledger.source_message_id,owner_token:$('OwnedRequest').item.json.ledger.owner_token,expected_phase:($('OwnedRequest').item.json.ledger.phase==='DraftIntentRecorded'?'DraftIntentRecorded':'Processing'),next_phase:'DraftIntentRecorded',intent:{message_id:$('RecheckAllowedRecipient').item.json.message_id,thread_id:$('RecheckAllowedRecipient').item.json.thread_id,subject:$('RecheckAllowedRecipient').item.json.subject,recipient:$('RecheckAllowedRecipient').item.json.recipient,reply_body:$('RecheckAllowedRecipient').item.json.reply_body} }))] }}",
           "connectionTimeout": 15,
           "queryBatching": "independently"
         }
@@ -2248,7 +2357,8 @@
           "queryBatching": "independently"
         }
       },
-      "retryOnFail": false
+      "retryOnFail": false,
+      "onError": "continueErrorOutput"
     },
     {
       "id": "t018-RecoveryLane",
@@ -2280,6 +2390,389 @@
         "width": 4704,
         "height": 1008,
         "color": 4
+      }
+    },
+    {
+      "id": "t018-ReadRecoveryThread",
+      "name": "ReadRecoveryThread",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        160
+      ],
+      "parameters": {
+        "resource": "thread",
+        "operation": "get",
+        "threadId": "={{ $('VerifyPreviousExecutionStopped').item.json.record.thread_id }}",
+        "simple": false,
+        "options": {}
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "id": "t018-ListMailboxDrafts",
+      "name": "ListMailboxDrafts",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        160
+      ],
+      "parameters": {
+        "resource": "draft",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput",
+      "retryOnFail": false
+    },
+    {
+      "id": "t018-ReconcileUncertainDraft",
+      "name": "ReconcileUncertainDraft",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2560,
+        160
+      ],
+      "executeOnce": true,
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (() => { const base = $('VerifyPreviousExecutionStopped').item.json; const reconciled = (function reconcileThreadAndDrafts(record, thread, draftList) {\n  const labels = m => Array.isArray(m?.labelIds) ? m.labelIds :\n    Array.isArray(m?.labels) ? m.labels.map(l => typeof l === 'string' ? l : l?.id).filter(Boolean) : [];\n  if (!thread || thread.error || !Array.isArray(thread.messages) || !Array.isArray(draftList) || draftList.some(d => d?.error)) {\n    return {quarantine: true, result: 'GmailThreadOrDraftReadFailedNeedsInspection', error: 'GmailThreadOrDraftReadFailedNeedsInspection'};\n  }\n  const sourceIndex = thread.messages.findIndex(m => m && m.id === record.source_message_id);\n  if (sourceIndex === -1) {\n    return {quarantine: true, result: 'SourceMessageMissingFromThreadNeedsInspection', error: 'SourceMessageMissingFromThreadNeedsInspection'};\n  }\n  const messagesAfterSource = thread.messages.slice(sourceIndex + 1).filter(m => !labels(m).includes('DRAFT'));\n  if (messagesAfterSource.length > 0) {\n    return {quarantine: true, result: 'SentOrNewerMessageAfterSourceNeedsInspection', error: 'SentOrNewerMessageAfterSourceNeedsInspection'};\n  }\n  const threadDraftMessages = thread.messages.filter(m => labels(m).includes('DRAFT'));\n  const mailboxDraftsInThread = draftList.filter(d => d && typeof d.id === 'string' && d.id && (d.message?.threadId || d.threadId) === record.thread_id);\n  if (threadDraftMessages.length !== mailboxDraftsInThread.length) {\n    return {quarantine: true, result: 'DraftThreadListInconsistentNeedsInspection', error: 'DraftThreadListInconsistentNeedsInspection'};\n  }\n  if (mailboxDraftsInThread.length > 1) {\n    return {quarantine: true, result: 'MultipleDraftsInThreadNeedsInspection', error: 'MultipleDraftsInThreadNeedsInspection'};\n  }\n  if (mailboxDraftsInThread.length === 1) {\n    const draft = mailboxDraftsInThread[0];\n    const draftMsgId = draft.message?.id || draft.messageId || null;\n    if (!draftMsgId || draftMsgId !== threadDraftMessages[0]?.id) {\n      return {quarantine: true, result: 'DraftThreadListInconsistentNeedsInspection', error: 'DraftThreadListInconsistentNeedsInspection'};\n    }\n    return {quarantine: false, result: 'InspectSingleDraft', resolution: 'InspectSingleDraft', inspectedDraftId: draft.id, draftMessageId: draftMsgId};\n  }\n  return {quarantine: false, result: 'AbsentCreateFromIntent', resolution: 'AbsentCreateFromIntent', draftAbsentVerified: true};\n})(base.record, $('ReadRecoveryThread').first().json, $('ListMailboxDrafts').all().map(i => i.json)); return { ...base, ...reconciled, request: { ...base.request, inspectedDraftId: reconciled.inspectedDraftId || base.request.inspectedDraftId } }; })() }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-RouteDraftReconciliation",
+      "name": "RouteDraftReconciliation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2880,
+        160
+      ],
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "values": [
+            {
+              "renameOutput": true,
+              "outputKey": "InspectSingleDraft",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('ReconcileUncertainDraft').item.json.resolution === 'InspectSingleDraft' }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "renameOutput": true,
+              "outputKey": "AbsentCreateFromIntent",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('ReconcileUncertainDraft').item.json.resolution === 'AbsentCreateFromIntent' }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Quarantine",
+          "allMatchingOutputs": false
+        }
+      }
+    },
+    {
+      "id": "t018-PrepareQuarantineRequest",
+      "name": "PrepareQuarantineRequest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2240,
+        832
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "quarantine-mailbox",
+              "name": "mailbox",
+              "value": "={{ $('VerifyMailboxAndSource').item.json.mailbox }}",
+              "type": "string"
+            },
+            {
+              "id": "quarantine-source-message-id",
+              "name": "source_message_id",
+              "value": "={{ $('ReadRecoveryRecord').item.json.record?.source_message_id || $('VerifyMailboxAndSource').item.json.request?.sourceMessageId }}",
+              "type": "string"
+            },
+            {
+              "id": "quarantine-expected-owner",
+              "name": "expected_owner",
+              "value": "={{ $('ReadRecoveryRecord').item.json.record?.owner_token || $('VerifyMailboxAndSource').item.json.request?.expectedOwnerToken }}",
+              "type": "string"
+            },
+            {
+              "id": "quarantine-expected-phase",
+              "name": "expected_phase",
+              "value": "={{ $('ReadRecoveryRecord').item.json.record?.phase || null }}",
+              "type": "string"
+            },
+            {
+              "id": "quarantine-error",
+              "name": "error",
+              "value": "={{ $json.error?.message || (typeof $json.error === 'string' ? $json.error : null) || $json.result || $json.message || 'NeedsInspection' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-QuarantineRecoveryRequest",
+      "name": "QuarantineRecoveryRequest",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2560,
+        832
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT public.quarantine_order_status_request($1::jsonb) AS quarantine",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify({mailbox: $json.mailbox, source_message_id: $json.source_message_id, expected_owner: $json.expected_owner, expected_phase: $json.expected_phase, error: $json.error, execution_id: String($execution.id)})] }}",
+          "connectionTimeout": 15,
+          "queryBatching": "independently"
+        }
+      },
+      "retryOnFail": false
+    },
+    {
+      "id": "t018-QuarantineApplied",
+      "name": "QuarantineApplied",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2880,
+        832
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('QuarantineRecoveryRequest').item.json.quarantine.quarantined === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-ReturnQuarantineSkipped",
+      "name": "ReturnQuarantineSkipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3200,
+        832
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "quarantine-skip-outcome",
+              "name": "outcome",
+              "value": "={{ $('QuarantineRecoveryRequest').item.json.quarantine.result }}",
+              "type": "string"
+            },
+            {
+              "id": "quarantine-skip-source-message-id",
+              "name": "sourceMessageId",
+              "value": "={{ $('PrepareQuarantineRequest').item.json.source_message_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-RestoreRecordedIntent",
+      "name": "RestoreRecordedIntent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3840,
+        1280
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "intent-message-id",
+              "name": "message_id",
+              "value": "={{ $('OwnedRequest').item.json.ledger.intent.message_id }}",
+              "type": "string"
+            },
+            {
+              "id": "intent-thread-id",
+              "name": "thread_id",
+              "value": "={{ $('OwnedRequest').item.json.ledger.intent.thread_id }}",
+              "type": "string"
+            },
+            {
+              "id": "intent-subject",
+              "name": "subject",
+              "value": "={{ $('OwnedRequest').item.json.ledger.intent.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "intent-recipient",
+              "name": "recipient",
+              "value": "={{ $('OwnedRequest').item.json.ledger.intent.recipient }}",
+              "type": "string"
+            },
+            {
+              "id": "intent-reply-body",
+              "name": "reply_body",
+              "value": "={{ $('OwnedRequest').item.json.ledger.intent.reply_body }}",
+              "type": "string"
+            },
+            {
+              "id": "intent-route",
+              "name": "route",
+              "value": "save",
+              "type": "string"
+            },
+            {
+              "id": "intent-reason",
+              "name": "reason",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-NeedsImmediateAlert",
+      "name": "NeedsImmediateAlert",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        6784
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('RecordUnfinishedWork').item.json.record?.status === 'NeedsRecovery' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t018-ReturnQueuedForAutoRecovery",
+      "name": "ReturnQueuedForAutoRecovery",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        640,
+        6560
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "queued-outcome",
+              "name": "outcome",
+              "value": "QueuedForAutoRecovery",
+              "type": "string"
+            },
+            {
+              "id": "queued-source-message-id",
+              "name": "sourceMessageId",
+              "value": "={{ $('RecordUnfinishedWork').item.json.record.source_message_id }}",
+              "type": "string"
+            },
+            {
+              "id": "queued-ledger-phase",
+              "name": "ledger_phase",
+              "value": "={{ $('RecordUnfinishedWork').item.json.record.phase }}",
+              "type": "string"
+            },
+            {
+              "id": "queued-ledger-status",
+              "name": "ledger_status",
+              "value": "={{ $('RecordUnfinishedWork').item.json.record.status }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       }
     }
   ],
@@ -3209,6 +3702,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PrepareRecoveryEnvelope",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -3278,11 +3778,25 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PrepareQuarantineRequest",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "ReadPreviousExecution": {
       "main": [
+        [
+          {
+            "node": "VerifyPreviousExecutionStopped",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "VerifyPreviousExecutionStopped",
@@ -3305,6 +3819,20 @@
     },
     "InspectedDraftRequired": {
       "main": [
+        [
+          {
+            "node": "PrepareQuarantineRequest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ReadRecoveryThread",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "ReadInspectedDraft",
@@ -3336,6 +3864,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "PrepareQuarantineRequest",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -3344,6 +3879,13 @@
         [
           {
             "node": "RecoveryEvidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PrepareQuarantineRequest",
             "type": "main",
             "index": 0
           }
@@ -3442,6 +3984,13 @@
         [
           {
             "node": "ResumeDraftLabels",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RestoreRecordedIntent",
             "type": "main",
             "index": 0
           }
@@ -3703,6 +4252,154 @@
     },
     "RecordUnfinishedWork": {
       "main": [
+        [
+          {
+            "node": "NeedsImmediateAlert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "StopVisiblyWithoutTriage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReadRecoveryThread": {
+      "main": [
+        [
+          {
+            "node": "ListMailboxDrafts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ListMailboxDrafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ListMailboxDrafts": {
+      "main": [
+        [
+          {
+            "node": "ReconcileUncertainDraft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ReconcileUncertainDraft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReconcileUncertainDraft": {
+      "main": [
+        [
+          {
+            "node": "RouteDraftReconciliation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RouteDraftReconciliation": {
+      "main": [
+        [
+          {
+            "node": "ReadInspectedDraft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RecoveryEvidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PrepareQuarantineRequest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PrepareQuarantineRequest": {
+      "main": [
+        [
+          {
+            "node": "QuarantineRecoveryRequest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QuarantineRecoveryRequest": {
+      "main": [
+        [
+          {
+            "node": "QuarantineApplied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QuarantineApplied": {
+      "main": [
+        [
+          {
+            "node": "StopVisiblyWithoutTriage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ReturnQuarantineSkipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RestoreRecordedIntent": {
+      "main": [
+        [
+          {
+            "node": "SharedReplyContext",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NeedsImmediateAlert": {
+      "main": [
+        [
+          {
+            "node": "ReturnQueuedForAutoRecovery",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "StopVisiblyWithoutTriage",
