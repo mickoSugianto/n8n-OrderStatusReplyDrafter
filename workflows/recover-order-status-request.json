@@ -2,13 +2,33 @@
   "name": "RecoverOrderStatusRequest",
   "nodes": [
     {
+      "id": "rec-schedule-recovery-sweep",
+      "name": "ScheduleRecoverySweep",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "5de2347e-e2fa-4cfe-96e8-f1405da90a6c",
       "name": "StartRecovery",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
         0,
-        0
+        224
       ],
       "parameters": {}
     },
@@ -19,11 +39,41 @@
       "typeVersion": 3.5,
       "position": [
         320,
-        0
+        112
       ],
       "parameters": {
         "assignments": {
           "assignments": [
+            {
+              "id": "req-mode",
+              "name": "mode",
+              "value": "={{ $('ScheduleRecoverySweep').isExecuted ? 'auto' : 'manual' }}",
+              "type": "string"
+            },
+            {
+              "id": "req-receiver-email",
+              "name": "receiverEmail",
+              "value": "controlled-receiver@example.com",
+              "type": "string"
+            },
+            {
+              "id": "req-cooldown-seconds",
+              "name": "cooldownSeconds",
+              "value": 300,
+              "type": "number"
+            },
+            {
+              "id": "req-batch-limit",
+              "name": "batchLimit",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "req-settle-window-ms",
+              "name": "settleWindowMs",
+              "value": 60000,
+              "type": "number"
+            },
             {
               "id": "req-source-message-id",
               "name": "sourceMessageId",
@@ -63,6 +113,102 @@
           ]
         },
         "options": {}
+      },
+      "notes": "Centralized recovery configuration: set receiverEmail, cooldownSeconds, batchLimit, and settleWindowMs for automated sweeps, or fill sourceMessageId, expectedOwnerToken, writesSettled, note, acceptChangedVersion, and inspectedDraftId for manual recovery."
+    },
+    {
+      "id": "rec-route-recovery-mode",
+      "name": "RouteRecoveryMode",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        112
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond-mode-is-auto",
+              "leftValue": "={{ $('SelectUnresolvedRequest').item.json.mode === 'auto' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "rec-find-recoverable-requests",
+      "name": "FindRecoverableRequests",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT value AS record FROM jsonb_array_elements(public.find_recoverable_order_status_requests($1::jsonb))",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify({mailbox: $('SelectUnresolvedRequest').item.json.receiverEmail, cooldown_seconds: $('SelectUnresolvedRequest').item.json.cooldownSeconds, limit: $('SelectUnresolvedRequest').item.json.batchLimit})] }}",
+          "connectionTimeout": 15,
+          "queryBatching": "independently"
+        }
+      },
+      "retryOnFail": false
+    },
+    {
+      "id": "rec-build-auto-recovery-requests",
+      "name": "BuildAutoRecoveryRequests",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "auto-req-mode",
+              "name": "mode",
+              "value": "auto",
+              "type": "string"
+            },
+            {
+              "id": "auto-req-source-message-id",
+              "name": "sourceMessageId",
+              "value": "={{ $json.record.source_message_id }}",
+              "type": "string"
+            },
+            {
+              "id": "auto-req-expected-owner-token",
+              "name": "expectedOwnerToken",
+              "value": "={{ $json.record.owner_token }}",
+              "type": "string"
+            },
+            {
+              "id": "auto-req-settle-window-ms",
+              "name": "settleWindowMs",
+              "value": "={{ $('SelectUnresolvedRequest').item.json.settleWindowMs }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
       }
     },
     {
@@ -71,8 +217,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.4,
       "position": [
-        640,
-        0
+        1600,
+        112
       ],
       "parameters": {
         "source": "database",
@@ -85,7 +231,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "request": "={{ $('SelectUnresolvedRequest').item.json }}"
+            "request": "={{ $json }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -104,7 +250,8 @@
         "options": {
           "waitForSubWorkflow": true
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "id": "8dc6ad47-28f9-4bd4-b0c0-7e0db35c530c",
@@ -112,18 +259,31 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        960,
+        1920,
         0
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ $('RecoverThroughMain').item.json }}",
+        "jsonOutput": "={{ $json }}",
         "options": {}
       }
     },
     {
+      "id": "rec-verify-sweep-batch-outcome",
+      "name": "VerifySweepBatchOutcome",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        224
+      ],
+      "parameters": {
+        "errorMessage": "={{ JSON.stringify($json) }}"
+      }
+    },
+    {
       "id": "fc465c94-8606-4364-bba0-bcb1299476fd",
-      "name": "RecoveryGuide",
+      "name": "RecoveryTriggerLane",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
@@ -131,14 +291,41 @@
         -144
       ],
       "parameters": {
-        "content": "## 01 — Recover one inspected source\nSelect a ledger record; confirm prior execution stopped and outstanding writes settled. No automatic reset.",
-        "width": 1440,
-        "height": 320,
+        "content": "## 01 — Trigger & configure recovery\nRun on the 5-minute automated sweep or manually with operator-supplied ledger evidence. Configure mailbox, cooldown, batch limit, and manual override fields in SelectUnresolvedRequest.",
+        "width": 928,
+        "height": 544,
         "color": 4
+      }
+    },
+    {
+      "id": "rec-dispatch-lane-note",
+      "name": "RecoveryDispatchLane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -144
+      ],
+      "parameters": {
+        "content": "## 02 — Discover & dispatch recovery batch\nQuery read-only recoverable ledger rows after cooldown, build auto-recovery envelopes, and dispatch both automated and manual requests through the shared RecoverThroughMain node.",
+        "width": 1248,
+        "height": 544,
+        "color": 5
       }
     }
   ],
   "connections": {
+    "ScheduleRecoverySweep": {
+      "main": [
+        [
+          {
+            "node": "SelectUnresolvedRequest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "StartRecovery": {
       "main": [
         [
@@ -154,6 +341,46 @@
       "main": [
         [
           {
+            "node": "RouteRecoveryMode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RouteRecoveryMode": {
+      "main": [
+        [
+          {
+            "node": "FindRecoverableRequests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "RecoverThroughMain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FindRecoverableRequests": {
+      "main": [
+        [
+          {
+            "node": "BuildAutoRecoveryRequests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BuildAutoRecoveryRequests": {
+      "main": [
+        [
+          {
             "node": "RecoverThroughMain",
             "type": "main",
             "index": 0
@@ -166,6 +393,13 @@
         [
           {
             "node": "ReturnRecoveryOutcome",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "VerifySweepBatchOutcome",
             "type": "main",
             "index": 0
           }

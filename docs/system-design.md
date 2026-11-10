@@ -111,7 +111,7 @@ All seven delivered exports are inactive and stripped of credentials. The inacti
 | --- | --- | --- | --- |
 | [DraftOrderStatusReply](../workflows/main-workflow.json) | Gmail every-minute poll, or typed recovery `request` object → own, route, save/confirm/label → completed context or named skip; failures stop | Gmail OAuth2 (including profile HTTP request), Postgres, Sheets through GetOrder, Groq API, OpenRouter API; n8n API for previous execution during recovery | Application entry; publish/start deliberately for polling; stopped at final closure |
 | [GetOrder](../workflows/get-order.json) | Typed string `order_number` → exact matched-row validation → one lookup contract | Google Sheets OAuth2 | Published callable dependency; no poller |
-| [RecoverOrderStatusRequest](../workflows/recover-order-status-request.json) | Manual selection → call the same main recovery entry → main outcome | Bound main; external credentials live in main | Manual, inactive; no scheduler |
+| [RecoverOrderStatusRequest](../workflows/recover-order-status-request.json) | 5-minute `ScheduleRecoverySweep` (`mode: "auto"`) or manual `StartRecovery` (`mode: "manual"`) → read-only candidate discovery (`FindRecoverableRequests`) or manual selection (`SelectUnresolvedRequest`) → shared `RecoverThroughMain` → main outcome | Bound main and `OrderStatusLedger` Postgres credential (`FindRecoverableRequests`); Gmail and n8n API credentials live in main | Automated 5-minute sweeper and manual operator override; shipped inactive |
 | [EvaluateOrderStatusModels](../workflows/harness/evaluation-workflow.json) | Native Evaluation Trigger rows → select extraction/drafting stage and record scored result | Groq API; separate evaluation Data Table | Optional testing, inactive/unpublished; no Gmail or Orders path |
 | [RunOrderStatusRegressionTest](../workflows/harness/run-order-status-regression.json) | Manual configured mode → readiness, session ownership, fixture dispatch, observation, restoration → SuiteResults and session row | n8n API, receiver Gmail OAuth2, read-only Sheets OAuth2, sessions Data Table; GetOrder, observer and Sender | Optional test orchestrator; may temporarily start selected main; stays inactive between runs |
 | [ObserveOrderStatusCase](../workflows/harness/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
@@ -399,7 +399,8 @@ erDiagram
     text draft_id "nullable"
     text draft_message_id "nullable"
     text last_error "nullable"
-    jsonb recovery "nullable private note"
+    integer recovery_attempts "0 initial; auto capped at 1"
+    jsonb recovery "nullable summary and history array"
     timestamptz created_at
     timestamptz updated_at
   }
@@ -447,26 +448,31 @@ These are logical stores. There are no database foreign keys between them, and t
 
 **Error, recovery and retention columns.**
 
-- `last_error` is nullable text. The failure function truncates it to 2,000 characters, and successful checkpoints clear it.
-- `recovery` is nullable JSON that records the previous owner/execution/candidate/phase, the operator note, the inspected draft ID, the start time and the result. Completion appends Completed and the completion time. It holds the current recovery information; it is not an append-only event log.
+- `last_error` is nullable text. The failure and quarantine functions truncate it to 2,000 characters, and successful checkpoints clear it.
+- `recovery_attempts` is a non-negative integer (`default 0`). Automated recovery (`mode = 'auto'`) is strictly capped at `max_attempts = 1` (`recovery_attempts < 1`), while manual operator recovery (`mode = 'manual'`) is unrestricted.
+- `recovery` is nullable JSON that records top-level summary metadata (`previous_owner`, `previous_execution`, `previous_candidate`, `previous_phase`, `mode`, `attempt`, `note`, `inspected_draft_id`, `draft_absent_verified`, `started_at`, `result`, and optional `last_quarantine`) alongside an append-only `history` JSONB array preserving every recovery transfer and quarantine action. Completion appends `result: "Completed"` and `completed_at`.
 - Both timestamps are timezone-aware, and every successful update advances `updated_at`.
 - Completed keys are kept indefinitely. There is no expiry or purge job.
 - Mailboxes, email addresses, subjects, reply bodies, message/draft locators and recovery notes are private. They need controlled access and backups.
 - Original mail can also remain in n8n execution retention, even though the ledger stores only the intent and not the full source body.
 
-### Manual recovery contract
+### Recovery request contract (`auto` and `manual`)
 
-The manual helper passes this kind of object to main's typed `request` input:
+`RecoverOrderStatusRequest` dispatches either an automated sweep envelope (`mode: "auto"`) or a manual operator override (`mode: "manual"`) through `RecoverThroughMain` to main's typed `request` input:
 
 ```json
-{"sourceMessageId":"a10001","expectedOwnerToken":"synthetic-execution-old","writesSettled":true,"note":"Synthetic example: prior execution terminal; saved draft inspected.","acceptChangedVersion":false,"inspectedDraftId":""}
+{"mode":"auto","sourceMessageId":"a10001","expectedOwnerToken":"synthetic-execution-old","settleWindowMs":60000}
 ```
 
-Defaults are blank or false, so the request is deliberately unusable until someone selects a source. Main rereads the real source; it does not use a submitted sender or body.
+```json
+{"mode":"manual","receiverEmail":"controlled-receiver@example.com","cooldownSeconds":300,"batchLimit":5,"settleWindowMs":60000,"sourceMessageId":"a10001","expectedOwnerToken":"synthetic-execution-old","writesSettled":true,"note":"Synthetic example: prior execution terminal; saved draft inspected.","acceptChangedVersion":false,"inspectedDraftId":""}
+```
 
-- **Decision outputs:** `LedgerRecordNotFound`, `SourceMismatchNeedsInspection`, `AlreadyCompleted`, `OwnershipConflict`, `OperatorInspectionRequired`, `CandidateVersionMismatch` and `UncertainWriteNeedsInspection`. Refused decisions include the source, the phase and inspection instructions.
-- **Successful transfer:** uses `RecoveryClaimed` internally, then proceeds to the same completed output with `recovered:true`.
-- **Exceptions:** can still fail the execution instead of producing a named decision.
+Manual override fields default to blank or `false`, so manual execution is deliberately inert until an operator populates `sourceMessageId`, `expectedOwnerToken`, `writesSettled: true`, and `note`. Main always re-reads the real Gmail source; it never uses a caller-supplied sender or body.
+
+- **Decision and deferral outputs:** `LedgerRecordNotFound`, `SourceReadFailedNeedsInspection`, `SourceMismatchNeedsInspection`, `AlreadyCompleted`, `AlreadyQuarantined`, `MaxAttemptsReached`, `OwnershipConflict`, `WriteSettlePending`, `OperatorInspectionRequired`, `CandidateVersionMismatch`, `UncertainWriteNeedsInspection`, `PreviousExecutionMissingOrMismatchNeedsInspection`, `PreviousExecutionTimedOutNeedsInspection`, and `MaxAutoRecoveryAttemptsExhaustedAfterCrash`.
+- **Pre-transfer quarantine:** Permanent pre-transfer failures (`quarantine: true`) invoke `QuarantineRecoveryRequest` (`quarantine_order_status_request`) and fail visibly at `StopVisiblyWithoutTriage` exactly once when `quarantined: true`.
+- **Successful transfer:** uses `RecoveryClaimed` internally, increments `recovery_attempts`, and proceeds to the same completed output with `recovered:true`.
 - **`entry:"Intake"`:** this internal request value selects an authorized intake path. It is not a reset or a force override, and it stays subject to the source and claim checks.
 
 ### Test-only contracts
@@ -550,43 +556,54 @@ Historical component fallback success proves only that component path in its rec
 
 **What identifies a unit of work.** An order number is deliberately not the idempotency key, because a customer may ask about the same order in a new message. Subjects can repeat, threads hold several messages, and execution IDs change on retries. The authenticated mailbox plus the immutable source ID identifies the work whose side effects must be reconciled. That is why S01 and S10 are processed independently even though they concern the same order.
 
-**Claiming.** `claim_order_status_request(jsonb)` inserts with `ON CONFLICT (mailbox,source_message_id) DO NOTHING RETURNING`. PostgreSQL's uniqueness constraint decides simultaneous first claims. A later SELECT reports the existing row, but it is not a lookup-then-insert lock. Only `acquired:true` authorizes work.
+### The five PostgreSQL RPCs
 
-- A completed row returns AlreadyCompleted.
-- Any other existing row returns OwnershipConflict, regardless of age or status.
+All ledger access flows through five `SECURITY INVOKER` functions in [`database/order-status-ledger.sql`](../database/order-status-ledger.sql):
 
-**Checkpointing.** `checkpoint_order_status_request(jsonb)` locks the row with `FOR UPDATE`. It compares the owner, the Running status and the expected phase, then checks the permitted transition and the required evidence flags. This conditional update stops a stale worker from checkpointing after ownership has moved.
-
-- An unknown or error checkpoint response stops the caller. It never authorizes a Gmail write.
-- Each call is a short database transaction. There is no single transaction around the whole workflow.
+1. **`claim_order_status_request(jsonb)` — Atomic first claim.** Inserts with `ON CONFLICT (mailbox,source_message_id) DO NOTHING RETURNING`. PostgreSQL's uniqueness constraint decides simultaneous first claims. A later `SELECT` reports the existing row, but it is not a lookup-then-insert lock. Only `acquired:true` (`result: "Claimed"`) authorizes work; a completed row returns `AlreadyCompleted`, and any other existing row returns `OwnershipConflict`, regardless of age or status.
+2. **`checkpoint_order_status_request(jsonb)` — Conditional phase progression and failure recording.** Locks the row with `FOR UPDATE`, compares `owner_token`, `status = 'Running'`, and `expected_phase`, and validates the transition and evidence flags.
+   - On `action = 'failure'`, sets `status = 'NeedsInspection'` when `inspection = 'true'` **or** `recovery_attempts >= 1`; otherwise (when `recovery_attempts = 0` on a first-time operational failure, including `DraftIntentRecorded` create/checkpoint timeouts) sets `status = 'NeedsRecovery'`.
+   - Allows `DraftIntentRecorded → DraftIntentRecorded` during recreate-from-intent recovery **only** when `r.intent` equals `p->'intent'`, raising `DraftIntentImmutableConflict` if the intent payload differs.
+   - An unknown or error checkpoint response stops the caller and never authorizes a Gmail write.
+3. **`quarantine_order_status_request(jsonb)` — Minimal-CAS pre-transfer quarantine.** Locks the row `FOR UPDATE` by `(mailbox, source_message_id)` when Phase `00` detects a permanent or unrecoverable pre-transfer error (missing source email, post-source message in thread, multiple/inconsistent drafts, version mismatch in `auto` mode, zombie/missing execution, or exhausted auto-recovery attempts after a crash).
+   - Returns `AlreadyCompleted` (`quarantined: false`) if `phase = 'Completed'` or `AlreadyQuarantined` (`quarantined: false`) if `status = 'NeedsInspection'`.
+   - Enforces a minimal 2-field CAS check on `expected_owner` and optional `expected_phase`, returning `OwnershipConflict` (`quarantined: false`) if concurrent ownership moved.
+   - Otherwise sets `status = 'NeedsInspection'`, records the truncated reason in `last_error`, appends a quarantine entry to `recovery.history`, and returns `{ quarantined: true, result: "Quarantined", record }`.
+4. **`recover_order_status_request(jsonb)` — Atomic compare-and-swap ownership transfer.** Locks the row `FOR UPDATE` and verifies the 5-field CAS expectation (`expected_owner`, `expected_phase`, `expected_status`, `old_execution_id`, `old_candidate_version`).
+   - Enforces the `recovery_attempts` cap: for `mode = 'auto'`, requires `recovery_attempts < 1` (`max_attempts = 1`), returning `MaxAttemptsReached` (`acquired: false`) if an automated attempt already occurred. For `mode = 'manual'`, recovery is unrestricted by `recovery_attempts`.
+   - Requires verified `old_execution_stopped`, `writes_settled`, and a non-empty `note`.
+   - For `DraftIntentRecorded`, accepts either the **adopt path** (`draft_verified = 'true'` with non-empty `draft_id` and `draft_message_id`, advancing `phase` to `DraftSaved`) or the **recreate-from-intent path** (`draft_absent_verified = 'true'` with non-null `r.intent`, keeping `phase = 'DraftIntentRecorded'`).
+   - Increments `recovery_attempts = r.recovery_attempts + 1`, sets `status = 'Running'` under the new `owner_token`, and appends the transfer record to `recovery.history`.
+5. **`find_recoverable_order_status_requests(jsonb)` — Pure read-only candidate discovery.** Executes a pure `SELECT` (no row mutations in SQL) returning up to `limit` (default `5`, clamped `1..25`) rows for `mailbox` where `phase <> 'Completed'`, `status IN ('NeedsRecovery', 'Running')`, `(status = 'Running' OR recovery_attempts < 1)`, and `updated_at <= now() - cooldown_seconds` (default `300` seconds / 5 minutes, minimum floor `90` seconds), ordered by `updated_at ASC`. Including stale `Running` rows with `recovery_attempts >= 1` allows Phase `00` to check their n8n execution liveness before quarantining a crashed auto-retry.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Processing: atomic first claim
+  [*] --> Processing: atomic first claim (recovery_attempts = 0)
   Processing --> DraftIntentRecorded: valid persisted draft intent
   Processing --> LabelsPending: manual_review
-  DraftIntentRecorded --> DraftSaved: returned IDs checkpointed
+  DraftIntentRecorded --> DraftIntentRecorded: immutable intent self-check (Case B recovery)
+  DraftIntentRecorded --> DraftSaved: returned IDs checkpointed or Case A draft adopted
   DraftSaved --> LabelsPending: draft_verified
   LabelsPending --> LabelsPending: reverified continuation
   LabelsPending --> Completed: labels_verified
   Completed --> Completed: duplicate returns skip
   note right of Processing
     Phase and status are separate.
-    Handled failure keeps phase;
-    status becomes NeedsRecovery or NeedsInspection.
+    1st operational failure (attempts = 0) -> NeedsRecovery (quiet exit).
+    2nd failure (attempts >= 1) or mismatch -> NeedsInspection (visible failure).
   end note
   note right of DraftIntentRecorded
-    Failure here always NeedsInspection.
-    Recovery without inspected draft refuses.
-    Verified adoption may move to DraftSaved.
+    Reconciled via thread.get + draft.getAll:
+    Case A (1 matching draft) -> adopt to DraftSaved.
+    Case B (0 drafts, 0 post-source msgs) -> RestoreRecordedIntent.
+    Case C (mismatch / >1 drafts / post-source msg) -> NeedsInspection.
   end note
 ```
 
 The state machine shows the legal SQL phase transitions and the completed skip. The skip is a read-only result, not a new update.
 
-- Other failures can set NeedsInspection through the inspection flag.
-- Recovery transfers set status to Running and keep the phase, except that an inspected intent adoption moves to DraftSaved.
-- SQL's evidence Booleans come from trusted workflow verification. PostgreSQL does not obtain them from Gmail itself.
+- Each database call is a short transaction; there is no single transaction around the whole workflow.
+- SQL's evidence Booleans (`draft_verified`, `draft_absent_verified`, `labels_verified`) come from trusted workflow verification. PostgreSQL does not obtain them from Gmail itself.
 
 ```mermaid
 sequenceDiagram
@@ -611,103 +628,109 @@ Either concurrent execution can win; the diagram's choice is only an illustratio
 | --- | --- |
 | Before the claim | The source may be polled again |
 | During Processing | No draft create is authorized yet, but recovery still requires stopping the old execution |
-| After intent, before saved IDs | Gmail may or may not already contain a draft |
-| After saved IDs, before confirmation | Recovery can inspect that same draft |
-| After labels, before the final checkpoint | Gmail may be triaged while the ledger is still unresolved |
+| After intent, before saved IDs | Gmail may or may not already contain a draft (`DraftIntentRecorded`) |
+| After saved IDs, before confirmation | Recovery can inspect that same draft (`DraftSaved`) |
+| After labels, before the final checkpoint | Gmail may be triaged while the ledger is still unresolved (`LabelsPending`) |
 
-A crash can also leave status Running, because no error handler ran.
+A crash can also leave status `Running`, because no error handler ran.
 
-**Why recovery is supervised.** No database ownership token can fence a Gmail API request that is already running. So recovery needs evidence that the previous native execution is terminal and that outstanding writes have settled. There is no age-based lease expiry and no automatic takeover. SQL compare-and-swap protects the ledger state, but safe reconciliation of external effects still needs operator judgment.
+**Bounded operational guarantees for liveness and write-settle.** No database ownership token can fence a Gmail API request that is already in flight. Instead of unverified age-based lease expiry, automated recovery enforces two bounded operational guarantees in `stoppedExecution`:
+
+1. **60-second post-`stoppedAt` write-settle policy (`settleWindowMs`, default `60000` ms, minimum floor `30000` ms):** After the n8n API confirms the prior execution reached a terminal status (`success`, `error`, `canceled`, or `crashed`) with a non-empty `stoppedAt` timestamp, automated recovery requires `Date.now() - Date.parse(execution.stoppedAt) >= settleWindowMs` before declaring `writesSettled: true`. If the execution stopped less than 60 seconds ago, recovery defers cleanly with `WriteSettlePending` (`quarantine: false`) so any late Gmail response can finish settling.
+2. **10-minute zombie execution timeout (`600000` ms):** If the prior execution is still non-terminal (`running`, `new`, `waiting`, or `unknown`), recovery checks `nowMs - Date.parse(execution.startedAt || record.updated_at)`. Executions active for less than 10 minutes defer cleanly with `OwnershipConflict` (`quarantine: false`), leaving healthy slow executions undisturbed. Executions hung for 10 minutes or longer return `PreviousExecutionTimedOutNeedsInspection` (`quarantine: true`), routing to `QuarantineRecoveryRequest` and failing visibly once for operator inspection.
 
 Keeping completed keys is part of correctness. Deleting them, recreating the table, changing the mailbox namespace or a bad migration can make old messages eligible again. Preserve keys and evidence through backups and migrations. No reset or purge implementation is included.
 
 ## 7. Failure handling and supervised recovery
 
-**Recording failures.** `UnfinishedWork` is where handled failures converge. `RecordUnfinishedWork` records a failure only for this owner while the row is Running, and it uses the actual current phase.
+**Recording failures and Option B alerting.** `UnfinishedWork` is where handled failures converge. `RecordUnfinishedWork` (`onError: "continueErrorOutput"`) calls `checkpoint_order_status_request(action='failure')` for the current owner while the row is `Running`, preserving the actual current phase:
 
-- DraftIntentRecorded always becomes NeedsInspection.
-- Other phases become NeedsInspection for recognized mismatch, confirmation or inspection errors, and NeedsRecovery otherwise.
-- The workflow then stops visibly.
-- If database access fails, ownership is unavailable or the process dies, no durable error update is guaranteed. The prior row or the native execution remains the evidence.
+- When `inspection = 'true'` (recognized content/recipient/confirmation mismatch) **or** `recovery_attempts >= 1` (the automated retry itself failed), PostgreSQL sets `status = 'NeedsInspection'`.
+- Otherwise, when `recovery_attempts = 0` on a first-time operational failure (including `DraftIntentRecorded` create or checkpoint timeouts), PostgreSQL sets `status = 'NeedsRecovery'`.
+- **Option B Alerting (`NeedsImmediateAlert`):**
+  - If `RecordUnfinishedWork` succeeds and returns `status = 'NeedsRecovery'`, `NeedsImmediateAlert` routes to `ReturnQueuedForAutoRecovery` (**quiet exit**, no exception thrown). This prevents false-alarm error notifications for first-time transient blips that will be self-healed by the 5-minute sweeper.
+  - If `RecordUnfinishedWork` returns `status = 'NeedsInspection'`—or if `RecordUnfinishedWork` itself errors or is reached from a pre-claim outage—execution routes to `StopVisiblyWithoutTriage` (**visible failure**, throwing a structured error). Likewise, Phase `00` pre-transfer quarantines (`QuarantineRecoveryRequest` → `QuarantineApplied`) route to `StopVisiblyWithoutTriage` **exactly once** when `quarantined === true`, and exit quietly via `ReturnQuarantineSkipped` if already quarantined/completed or on a benign CAS conflict.
 
 | Detection / failure | Durable state when available | Possible external effect | Safe next action; blind action prohibited |
 | --- | --- | --- | --- |
 | Input filter misses, Spam/Trash, polling not active | No claim | Source retained, no processing | Check delivery/filter/operating state; no automatic resend |
-| Mailbox/source authentication or claim failure | No owned row, or uncertain claim response | Normally no business operation | Inspect exact key and credential; never bypass claim |
+| Mailbox/source authentication or claim failure | No owned row, or uncertain claim response | Normally no business operation | Fails visibly at `StopVisiblyWithoutTriage`; inspect exact key and credential; never bypass claim |
 | Invalid sender/input, unsupported/multiple request, duplicate/invalid selected row, sender mismatch, invalid extraction/text | Review LabelsPending → Completed if labels verified | Review labels; no draft | Human review; not an outage retry |
-| Sheets/provider operational failure without successful fallback; invalid lookup contract | Processing with handled failure status | Reads/model calls may have occurred | Reconcile error and old execution before recovery; never misreport not-found |
-| Intent/checkpoint failure | Last durable phase; response may be uncertain | No subsequent create authorized | Inspect row, stop; never continue from local assumptions |
-| Draft create error or missing returned-ID checkpoint | DraftIntentRecorded; handled failure NeedsInspection | Draft may exist | Inspect outstanding write and exact draft; never blindly create again |
-| Saved draft read/confirmation failure | DraftSaved, or saved draft LabelsPending during recovery; recovery/inspection status | Existing draft remains | Verify retained draft and IDs; no regeneration/overwrite |
-| Label write/read/verification or final checkpoint failure | LabelsPending if reached; handler may record failure | Some/all labels may already exist | Read source/draft and finish same outcome after supervised transfer |
-| Cancellation, process crash, instance outage | Last phase, possibly still Running | Any already issued request may settle later | Terminal evidence plus settled writes; age alone is insufficient |
+| Sheets/provider operational failure without successful fallback; invalid lookup contract | `Processing` with `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Reads/model calls may have occurred | 1st failure exits quietly via `ReturnQueuedForAutoRecovery` for auto-sweep; 2nd failure quarantines and fails visibly |
+| Intent/checkpoint failure | Last durable phase; response may be uncertain | No subsequent create authorized | Queues for auto-recovery (`attempts = 0`) or quarantines (`attempts >= 1`); never continue from local assumptions |
+| Draft create error or missing returned-ID checkpoint | `DraftIntentRecorded`; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Draft may or may not exist in Gmail | Phase `00` reconciles via `ReadRecoveryThread` + `ListMailboxDrafts` + `ReconcileUncertainDraft`; never blindly create without thread/draft verification |
+| Saved draft read/confirmation failure | `DraftSaved`, or saved draft `LabelsPending`; `NeedsInspection` on mismatch | Existing draft remains | Verify retained draft and IDs; no regeneration/overwrite |
+| Label write/read/verification or final checkpoint failure | `LabelsPending` if reached; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Some/all labels may already exist | Auto-sweeper or manual recovery re-reads source/draft and finishes same outcome after CAS transfer |
+| Cancellation, process crash, instance outage | Last phase, possibly still `Running` | Any already issued request may settle later | Sweeper selects stale `Running` rows after 5m cooldown; Phase `00` enforces terminal check + 60s settle window (or 10m zombie quarantine) |
 | Observer API/setup/missing evidence, runner restoration failure | Test session error/active state; application ledger remains independent | Fixtures/main startup may already have happened | Inspect session and restore main; remaining cases NOT_RUN, no resend or false PASS |
 
-A review completion is intentionally distinguishable from a technical failure: labels without a draft can be a correct terminal result. There is no alert workflow, no retry queue, no recovery scheduler and no crash-proof cleanup. The visibility you do have is the ledger, native executions, Gmail readbacks and test sessions.
+### How automated and manual recovery proceed
 
-### How recovery proceeds
+**Step 1 — Sweeper discovery or manual selection (`RecoverOrderStatusRequest`).**
+- **Automated sweep (`mode = 'auto'`):** `ScheduleRecoverySweep` triggers every 5 minutes, reads centralized config from `SelectUnresolvedRequest` (`receiverEmail`, `cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`), and calls `FindRecoverableRequests` (`find_recoverable_order_status_requests`). `BuildAutoRecoveryRequests` constructs `{ mode: "auto", sourceMessageId, expectedOwnerToken, settleWindowMs }` for each candidate row and invokes `RecoverThroughMain` (`onError: "continueErrorOutput"`). If any item in the batch fails visibly, `VerifySweepBatchOutcome` re-throws the error after the batch completes.
+- **Manual override (`mode = 'manual'`):** An operator triggers `StartRecovery` with explicit `sourceMessageId`, `expectedOwnerToken`, `writesSettled: true`, `note`, optional `acceptChangedVersion`, and optional `inspectedDraftId` in `SelectUnresolvedRequest`, routing through `RouteRecoveryMode` to the shared `RecoverThroughMain` node. Manual mode is unrestricted by `recovery_attempts` and is used to recover `NeedsInspection` rows after human inspection.
 
-**Step 1 — Gather evidence.** Recovery starts from the real Gmail source and mailbox, then checks the expected owner and the current candidate. It reads the prior native execution through the n8n API and requires:
+**Step 2 — Gather evidence and enforce liveness/settle gates (`Phase 00`).**
+All external read nodes in Phase `00` (`ReadRecoverySource`, `ReadPreviousExecution`, `ReadRecoveryThread`, `ListMailboxDrafts`, and `ReadInspectedDraft`) use `onError: "continueErrorOutput"` so external API errors are caught and routed deterministically:
+- `ReadRecoverySource` and `VerifyMailboxAndSource` confirm the live Gmail source message and authenticated receiver profile. A `404` or source read failure (`SourceReadFailedNeedsInspection`), source/thread mismatch (`SourceMismatchNeedsInspection`), or unaccepted `CandidateVersionMismatch` in `auto` mode routes to `PrepareQuarantineRequest` → `QuarantineRecoveryRequest`.
+- `ReadPreviousExecution` and `VerifyPreviousExecutionStopped` (`stoppedExecution`) verify the prior execution via the n8n API:
+  - Missing (`404`) or mismatched workflow/execution identity $\rightarrow$ `PreviousExecutionMissingOrMismatchNeedsInspection` (quarantine).
+  - Non-terminal (`running`, `new`, `waiting`, `unknown`) for `< 10` minutes $\rightarrow$ `OwnershipConflict` (clean deferral).
+  - Non-terminal for $\ge 10$ minutes $\rightarrow$ `PreviousExecutionTimedOutNeedsInspection` (10-minute zombie timeout quarantine).
+  - Terminal (`success`, `error`, `canceled`, `crashed` with `stoppedAt`) where `mode === 'auto'` and `recovery_attempts >= 1` (a crashed auto-retry that remained `Running`) $\rightarrow$ `MaxAutoRecoveryAttemptsExhaustedAfterCrash` (quarantine).
+  - Terminal in `auto` mode with `nowMs - Date.parse(stoppedAt) < settleWindowMs` (`60000` ms default, `30000` ms floor) $\rightarrow$ `WriteSettlePending` (clean deferral).
+  - Terminal and settled $\ge 60$ seconds $\rightarrow$ sets `writesSettled: true` and auto-generates the audit `note`.
 
-- a matching execution and workflow identity,
-- a status of `success`, `error`, `canceled` or `crashed`, and
-- a nonempty `stoppedAt`.
+**Step 3 — Multi-turn safe `DraftIntentRecorded` reconciliation (`Phase 00`).**
+When `record.phase === 'DraftIntentRecorded'` and no manual `inspectedDraftId` was pre-supplied (`InspectedDraftRequired` branch `reconcile`), main executes `ReadRecoveryThread` (`thread.get`), `ListMailboxDrafts` (`draft.getAll` with `returnAll: true` and `alwaysOutputData: true`), and `ReconcileUncertainDraft` (`reconcileThreadAndDrafts` with `executeOnce: true`):
+1. **Multi-turn post-source slice:** Finds `sourceIndex = thread.messages.findIndex(m => m.id === record.source_message_id)`. Earlier `SENT` replies at indices `< sourceIndex` from prior conversation turns are ignored. Any non-`DRAFT` message at index `> sourceIndex` means a reply was already sent or a newer customer follow-up arrived $\rightarrow$ **Case C quarantine (`SentOrNewerMessageAfterSourceNeedsInspection`)**.
+2. **Thread vs. mailbox draft cross-check:** Compares `DRAFT` messages in `thread.messages` against drafts for `record.thread_id` in `ListMailboxDrafts`:
+   - **Case A (Adopt 1 matching draft):** Exactly 1 draft exists in both `thread.get` and `draft.getAll` with matching message IDs (`resolution: "InspectSingleDraft"`). `RouteDraftReconciliation` routes to `ReadInspectedDraft` → `VerifyInspectedDraft` (`verifiedDraft`), verifying recipient, thread, subject, trimmed plain-text body, `DRAFT` label, and absence of CC/BCC against `record.intent`. If verified, `TransferRecoveryOwnership` adopts `draft_id` and `draft_message_id` and transitions `DraftIntentRecorded → DraftSaved`.
+   - **Case B (0 drafts & 0 post-source messages $\rightarrow$ Recreate from saved intent with 0 LLM/Sheets calls):** Zero drafts exist in both `thread.get` and `draft.getAll` and zero non-draft messages exist after `sourceIndex` (`resolution: "AbsentCreateFromIntent"`, `draftAbsentVerified: true`). `TransferRecoveryOwnership` keeps `phase = 'DraftIntentRecorded'` under the new `owner_token`, and `ResumeRecordedPhase` routes to `RestoreRecordedIntent` → `SharedReplyContext` → `RecheckAllowedRecipient` → `SaveRecipientAccepted` → `RecordDraftIntent` (using dynamic `expected_phase` and SQL immutability check `r.intent = p->'intent'`) → `SaveReviewDraft` (**0 LLM or Google Sheets calls**).
+   - **Case C (Quarantine via `QuarantineRecoveryRequest`):** If `thread.get` or `draft.getAll` errors (`GmailThreadOrDraftReadFailedNeedsInspection`), `source_message_id` is missing from the thread (`SourceMessageMissingFromThreadNeedsInspection`), a post-source message exists (`SentOrNewerMessageAfterSourceNeedsInspection`), `thread.get` and `draft.getAll` disagree (`DraftThreadListInconsistentNeedsInspection`), multiple drafts exist (`MultipleDraftsInThreadNeedsInspection`), or the single draft fails `ReadInspectedDraft` / `VerifyInspectedDraft` (`SavedDraftMismatchNeedsInspection`), execution routes to `PrepareQuarantineRequest` → `QuarantineRecoveryRequest` → `QuarantineApplied` → `StopVisiblyWithoutTriage`.
 
-It does not require `finished:true`, because a terminal native error can report false. Running or waiting evidence refuses the transfer, and missing or inconsistent evidence stops it. The operator must explicitly acknowledge that writes are settled and supply a nonempty private note.
-
-**Step 2 — Transfer ownership.** `recover_order_status_request` locks the row and compares the expected owner, phase, status, old execution and old candidate. It rejects stale expectations and requires a distinct new owner and execution. A changed candidate needs an explicit `acceptChangedVersion:true` after review. The function trusts the backend's stopped/settled/draft evidence inputs, because it cannot establish them itself. A successful transfer records provenance and sets the status to Running.
-
-**Step 3 — Resume from the saved phase.**
-
-- **Processing:** re-enters the shared business path.
-- **DraftSaved:** restores the persisted intent and IDs, then reads and verifies the same draft. No extraction, lookup, models or creation happen.
-- **Draft LabelsPending:** reverifies that draft, then finishes the labels.
-- **Review LabelsPending:** finishes only the review labels.
-- **DraftIntentRecorded without a specifically inspected draft ID:** refuses ownership transfer.
-- **DraftIntentRecorded with one inspected draft ID:** main reads that draft and verifies the exact recorded intent and that there are no extra recipients. The conditional transfer then adopts the returned draft and message identities and resumes the same confirmation path.
-
-```mermaid
-sequenceDiagram
-  participant M as Original main
-  participant G as Gmail
-  participant P as Ledger
-  participant O as Operator / recovery main
-  M->>G: Create draft
-  G-->>M: Draft D and message DM
-  M->>P: DraftSaved with D / DM
-  M->>G: Read draft or finish labels
-  G-->>M: Error
-  M->>P: Keep phase, record failure if possible
-  O->>G: Inspect exact source and draft
-  O->>O: Verify prior execution stopped; writes settled
-  O->>P: Conditional recovery ownership transfer
-  P-->>O: RecoveryClaimed
-  O->>G: Read and verify same D
-  O->>P: LabelsPending
-  O->>G: Apply required labels; read source
-  O->>P: Complete
-  Note over G,O: No new draft, extraction, lookup or model call
-```
-
-The same-draft guarantee depends on a successful, matching readback, not on finding a draft with a similar subject. These cases all stop for inspection: sent or deleted drafts, an edited subject, body or recipient, extra CC/BCC, unavailable evidence, and inconsistent identities. A trim-only whitespace change is a documented limitation of the comparison.
+**Step 4 — Atomic CAS ownership transfer and phase-exact resume.**
+`TransferRecoveryOwnership` calls `recover_order_status_request`. Once `RecoveryClaimed` is returned, `ResumeRecordedPhase` routes by the recorded phase:
+- **`Processing`:** re-enters `PrepareSourceContext` to run validation, extraction, order lookup, and drafting.
+- **`DraftIntentRecorded` (Case B `0` drafts):** `RestoreRecordedIntent` restores `{ ...record.intent, route: "save" }` directly into `SharedReplyContext` → `RecheckAllowedRecipient` → `SaveRecipientAccepted` → `RecordDraftIntent` → `SaveReviewDraft` without calling any LLM or Sheets node.
+- **`DraftSaved` (including Case A adopted draft):** `RestoreRecordedDraft` restores the persisted intent and draft IDs, then reads and confirms the existing Gmail draft via `ReadSavedDraft` → `ConfirmSavedDraft`.
+- **`LabelsPending` (`draft_ready`):** `ResumeDraftLabels` re-verifies the existing Gmail draft, then applies and verifies the `triaged` source label.
+- **`LabelsPending` (`manual_review`):** `RestoreReviewContext` applies and verifies the `needs-review` and `triaged` source labels.
 
 ```mermaid
 sequenceDiagram
-  participant M as Original main
-  participant P as Ledger
-  participant G as Gmail
-  participant R as Recovery main
-  M->>P: Persist DraftIntentRecorded
-  M->>G: Create draft
-  Note over M,G: Result or saved-ID checkpoint unavailable
-  R->>P: Read unresolved intent
-  P-->>R: No recorded draft ID
-  Note over R: No inspected draft ID supplied
-  R-->>R: UncertainWriteNeedsInspection
-  Note over R,G: No ownership transfer, Gmail write or new create
-```
+  participant S as RecoverOrderStatusRequest
+  participant M as Main (Phase 00)
+  participant N as n8n Execution API
+  participant G as Gmail API
+  participant P as PostgreSQL Ledger
 
-The actual proof used a real Gmail create plus a temporary connection bypass that simulated losing the returned-ID checkpoint. It was not a real network timeout, and private execution evidence could still retain the create result. The unresolved intent record and the single draft remained available for inspection. This proves the refusal path under the exercised condition. It does not prove crash immunity.
+  S->>M: { mode: "auto", sourceMessageId, expectedOwnerToken, settleWindowMs: 60000 }
+  M->>P: ReadRecoveryRecord (phase = DraftIntentRecorded, attempts = 0)
+  M->>N: ReadPreviousExecution (onError: continueErrorOutput)
+  N-->>M: Terminal status + stoppedAt >= 60s ago
+  M->>G: ReadRecoveryThread (thread.get) + ListMailboxDrafts (draft.getAll)
+  G-->>M: thread.messages[] + allDrafts[]
+  M->>M: ReconcileUncertainDraft (slice after source_message_id & cross-check)
+
+  alt Case A: 1 cross-checked draft matching record.intent
+    M->>G: ReadInspectedDraft + VerifyInspectedDraft
+    M->>P: recover_order_status_request(draft_verified=true, draft_id, draft_message_id)
+    P-->>M: RecoveryClaimed (phase -> DraftSaved, recovery_attempts = 1)
+    M->>G: ReadSavedDraft -> ConfirmSavedDraft -> Apply & Verify Labels
+    M->>P: checkpoint_order_status_request(Completed)
+  else Case B: 0 drafts in both AND 0 post-source messages
+    M->>P: recover_order_status_request(draft_absent_verified=true)
+    P-->>M: RecoveryClaimed (phase = DraftIntentRecorded, recovery_attempts = 1)
+    Note over M: RestoreRecordedIntent -> SharedReplyContext -> RecheckAllowedRecipient -> RecordDraftIntent
+    M->>G: SaveReviewDraft from persisted record.intent (0 LLM/Sheets calls)
+    M->>P: checkpoint_order_status_request(DraftSaved) -> Confirm -> Completed
+  else Case C: Post-source msg, >1 drafts, list mismatch, or draft content mismatch
+    M->>P: quarantine_order_status_request(expected_owner, expected_phase, error)
+    P-->>M: { quarantined: true, result: "Quarantined" }
+    M->>M: StopVisiblyWithoutTriage (Visible Failure)
+  end
+```
 
 ### Worked synthetic examples
 
@@ -728,10 +751,10 @@ The actual proof used a real Gmail create plus a temporary connection bypass tha
 **Same-draft recovery.** This synthetic before/after fragment shows the ledger change. Omitted columns are retained.
 
 ```json
-{"before":{"mailbox":"receiver@example.com","source_message_id":"a10003","phase":"DraftSaved","status":"NeedsRecovery","owner_token":"synthetic-old","draft_id":"synthetic-draft-three","draft_message_id":"c10003"},"after":{"mailbox":"receiver@example.com","source_message_id":"a10003","phase":"Completed","status":"Completed","owner_token":"synthetic-new","draft_id":"synthetic-draft-three","draft_message_id":"c10003","recovery":{"previous_owner":"synthetic-old","result":"Completed"}}}
+{"before":{"mailbox":"receiver@example.com","source_message_id":"a10003","phase":"DraftSaved","status":"NeedsRecovery","recovery_attempts":0,"owner_token":"synthetic-old","draft_id":"synthetic-draft-three","draft_message_id":"c10003"},"after":{"mailbox":"receiver@example.com","source_message_id":"a10003","phase":"Completed","status":"Completed","recovery_attempts":1,"owner_token":"synthetic-new","draft_id":"synthetic-draft-three","draft_message_id":"c10003","recovery":{"previous_owner":"synthetic-old","mode":"auto","attempt":1,"result":"Completed"}}}
 ```
 
-The operator supplies the old token, the settled-write acknowledgement and the note. Recovery verifies the terminal execution and the same saved intent, conditionally acquires ownership, rereads that draft and finishes the labels. The point of the example is that the draft IDs do not change. It is a fragment, not the complete recovery JSON or a runnable fixture.
+Recovery verifies the terminal execution and 60-second write-settle window (or operator acknowledgement in manual mode), conditionally acquires ownership, rereads that same draft and finishes the labels. The draft IDs do not change. It is a fragment, not the complete recovery JSON or a runnable fixture.
 
 ## 8. Security, privacy and access
 
@@ -752,9 +775,9 @@ Matching email strings is not strong customer authentication. It does not show c
 
 Gmail/Sheets OAuth, provider API keys, SMTP and n8n API/Postgres access all live in n8n credentials. Tokens never appear in text parameters. Rebind and inspect every credentialed node; a matching credential display name does not prove it is the right account.
 
-- Main needs draft, label and profile operations.
-- The child (GetOrder) needs order reads.
-- Recovery needs previous-execution reads.
+- Main needs draft, thread/draft-list, label and profile operations, plus Postgres ledger access and n8n API previous-execution reads.
+- The child (`GetOrder`) needs order reads.
+- `RecoverOrderStatusRequest` needs Postgres (`OrderStatusLedger`) on `FindRecoverableRequests` for read-only candidate discovery.
 - The test runner's n8n API access additionally reads workflows and executions and activates or deactivates main.
 
 Use scoped API permissions where supported. Non-Enterprise access may be broader, and the package does not claim it is restricted per workflow. The workflow caller policy is `workflowsFromSameOwner`, and trusted same-owner code remains privileged.
@@ -763,9 +786,9 @@ Use scoped API permissions where supported. Non-Enterprise access may be broader
 
 The SQL creates a dedicated login role with no superuser, no database or role creation, no replication and no RLS bypass.
 
-- It grants schema usage and ledger SELECT/INSERT/UPDATE. No DELETE or schema CREATE is intended. The [read-only preflight](../database/verify-order-status-ledger.sql) checks effective privileges and RLS.
+- It grants schema usage and ledger SELECT/INSERT/UPDATE. No DELETE or schema CREATE is intended. The [read-only preflight](../database/verify-order-status-ledger.sql) checks effective privileges, `recovery_attempts`, RLS, and all five RPC grants (18 boolean checks).
 - Anonymous/authenticated client access and public function execution are revoked.
-- Three functions are SECURITY INVOKER with an empty search_path and explicitly qualified ledger names.
+- Five functions (`claim_order_status_request`, `checkpoint_order_status_request`, `quarantine_order_status_request`, `recover_order_status_request`, and `find_recoverable_order_status_requests`) are `SECURITY INVOKER` with an empty `search_path` and explicitly qualified ledger names.
 - The worker's RLS policy allows its ledger rows with `USING(true)`/`WITH CHECK(true)`. It is not tenant isolation between different malicious workers.
 - Because the role holds direct INSERT/UPDATE privileges, trusted code that has this role can bypass the workflow's transition discipline. Functions, grants and ownership tokens are not a general authorization barrier against a compromised trusted backend.
 
@@ -805,7 +828,7 @@ There are three reusable test types. They answer different questions, so do not 
 
 **Supporting checks.** These accompany the focused reliability proofs and are not extra live email cases.
 
-- **57 recovery checks** cover guards, source and graph relationships.
+- **73 recovery checks** (`node tests/check-recovery.js`) cover automated and manual recovery guards, multi-turn thread/draft reconciliation, write-settle and zombie-timeout policies, SQL RPC/migration definitions, source parity, and graph topology relationships.
 - **107 observer/control checks** include eleven negative ledger controls.
 - **Seven final-candidate native dry runs and one observer check** used pinned side effects. They are configuration evidence, not new service proof.
 - The [sanitized summary](../README.md#tested-behavior) retains the proofs for overlap, stale-owner rejection, same-draft recovery, review-label recovery, completed-source skip, and actual-create/simulated-checkpoint-loss refusal.

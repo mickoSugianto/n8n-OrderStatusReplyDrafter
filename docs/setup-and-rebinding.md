@@ -8,7 +8,7 @@ For system architecture and data contracts, see [As-Built System Design](system-
 
 ## Step 1: Set Up the Ledger Database
 
-Before importing workflows, provision the PostgreSQL ledger in Supabase by following [Ledger Database Setup](ledger-database-setup.md) and running [`database/order-status-ledger.sql`](../database/order-status-ledger.sql).
+Before importing workflows, provision or upgrade the PostgreSQL ledger in Supabase by following [Ledger Database Setup](ledger-database-setup.md) (running [`database/order-status-ledger.sql`](../database/order-status-ledger.sql) for a new database or [`database/migrate-automated-recovery.sql`](../database/migrate-automated-recovery.sql) for an existing deployment, then verifying all 18 checks in [`database/verify-order-status-ledger.sql`](../database/verify-order-status-ledger.sql)).
 
 ---
 
@@ -27,8 +27,8 @@ Create or select credentials in n8n and explicitly verify the bound account on *
 
 | Credential Type | Nodes to Bind |
 | --- | --- |
-| **Gmail OAuth2 API** (`gmailOAuth2`) | All Gmail trigger, message read, draft create/read, and label nodes in `DraftOrderStatusReply`, plus the `ReadMailboxIdentity` HTTP Request node |
-| **Postgres** (`postgres`) | All ledger nodes in `DraftOrderStatusReply` (use the restricted `OrderStatusLedger` credential with SSL enabled) |
+| **Gmail OAuth2 API** (`gmailOAuth2`) | All Gmail trigger, message read, thread read, draft list/create/read, and label nodes in `DraftOrderStatusReply` (`ReceivePendingDemo`, `ReadRecoverySource`, `ReadRecoveryThread`, `ListMailboxDrafts`, `ReadInspectedDraft`, `SaveReviewDraft`, `ReadSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, `ReadFinalSourceLabels`), plus the `ReadMailboxIdentity` HTTP Request node |
+| **Postgres** (`postgres`) | All 10 ledger nodes in `DraftOrderStatusReply` (`ReadRecoveryRecord`, `QuarantineRecoveryRequest`, `TransferRecoveryOwnership`, `ClaimSourceAtomically`, `RecordDraftIntent`, `RecordSavedDraft`, `RecordDraftLabelsPending`, `RecordReviewLabelsPending`, `CompleteLedger`, `RecordUnfinishedWork`) **and** `FindRecoverableRequests` in `RecoverOrderStatusRequest` (use the restricted `OrderStatusLedger` credential with SSL enabled) |
 | **n8n API** (`n8nApi`) | `ReadPreviousExecution` in `DraftOrderStatusReply` (pointed to your destination instance `/api/v1` URL for recovery checks) |
 | **Google Sheets OAuth2 API** (`googleSheetsOAuth2Api`) | `ReadAllOrders` in `GetOrder` |
 | **Groq API** (`groqApi`) | `GroqExtractionModel` and `GroqDraftingModel` subnodes |
@@ -44,10 +44,10 @@ The demonstration design uses **two controlled email accounts**:
 - **Customer sender account** (sends test order inquiries)
 - **Support receiver account** (the Gmail inbox watched by n8n)
 
-Update the email fields in the centralized **`WorkflowConfig`** Edit Fields node (Phase `01` of `DraftOrderStatusReply`):
-1. **`customerEmail`:** Replace `controlled-sender@example.com` with your controlled customer sender email.
-2. **`receiverEmail`:** Replace `controlled-receiver@example.com` with your authenticated receiver Gmail address.
-   - *(Downstream nodes—`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, and `ConfirmSavedDraft`—automatically read both addresses from `WorkflowConfig`. Allowing the receiver address in the allowlist supports the receiver-to-self sender-ownership mismatch test scenario `S08`.)*
+Update the email fields in the centralized **`WorkflowConfig`** Edit Fields node (Phase `01` of `DraftOrderStatusReply`) and in **`SelectUnresolvedRequest`** (`RecoverOrderStatusRequest`):
+1. **`customerEmail` (`WorkflowConfig`):** Replace `controlled-sender@example.com` with your controlled customer sender email.
+2. **`receiverEmail` (`WorkflowConfig` and `SelectUnresolvedRequest`):** Replace `controlled-receiver@example.com` with your authenticated receiver Gmail address in both workflows.
+   - *(Downstream nodes in `DraftOrderStatusReply`—`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, and `ConfirmSavedDraft`—automatically read both addresses from `WorkflowConfig`. Allowing the receiver address in the allowlist supports the receiver-to-self sender-ownership mismatch test scenario `S08`. In `RecoverOrderStatusRequest`, `FindRecoverableRequests` reads `receiverEmail` from `SelectUnresolvedRequest`.)*
 3. **Store Branding (Optional):** `PrepareSourceContext` defaults to `Sample Shop` and `Sample Shop Support`. Update these strings if desired.
 
 ---
@@ -89,15 +89,16 @@ Gmail REST API operations require internal IDs (e.g. `Label_1`), not label names
    - `order-status-reply-drafter/needs-review` → `<REVIEW_LABEL_ID>` (e.g. `Label_3`)
 5. Close and discard the scratch workflow.
 
-### 3. Rebind Resource & Workflow Placeholders (4 Nodes Total)
+### 3. Rebind Resource & Workflow Placeholders (5 Nodes Total)
 
-All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
+All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), recovery sweep settings live in **`SelectUnresolvedRequest`** inside `RecoverOrderStatusRequest`, `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
 
 | Node | Workflow | Action |
 | --- | --- | --- |
 | **`ReadAllOrders`** | `GetOrder` | Select your Google Sheet (`<SPREADSHEET_ID>`) and the `Orders` tab (`<ORDERS_TAB_ID>`) from the dropdowns (keep range `A:F` and read all rows) |
 | **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
 | **`GetOrderDeterministically`** | `DraftOrderStatusReply` (Phase `04`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
+| **`SelectUnresolvedRequest`** | `RecoverOrderStatusRequest` | Replace `receiverEmail` (`controlled-receiver@example.com`) with your authenticated support receiver Gmail address (keep `cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`, and leave manual override fields blank/false) |
 | **`RecoverThroughMain`** | `RecoverOrderStatusRequest` | Select the imported `DraftOrderStatusReply` workflow (`<MAIN_WORKFLOW_ID>`) from the dropdown |
 
 ---
@@ -116,20 +117,21 @@ All label IDs and email addresses inside `DraftOrderStatusReply` are centralized
 In n8n, callable sub-workflows must be published before the parent workflow can be published/activated:
 1. Open `GetOrder`, verify its Google Sheets binding, and **publish** it (`GetOrder` has no polling trigger of its own).
 2. Open `DraftOrderStatusReply`, verify all connections, bindings, and that **zero test pins** exist on any node.
+3. Open `RecoverOrderStatusRequest`, verify `SelectUnresolvedRequest` (`receiverEmail`), `FindRecoverableRequests` (`OrderStatusLedger` Postgres credential), and `RecoverThroughMain` (`DraftOrderStatusReply`).
 
 ---
 
 ## Step 8: Supervised Smoke Test & Operation
 
-1. **Activate `DraftOrderStatusReply`** only when you are ready to observe it.
+1. **Activate `DraftOrderStatusReply`** (and optionally **`RecoverOrderStatusRequest`** for 5-minute automated recovery sweeps) only when you are ready to observe them. Note that `DraftOrderStatusReply` must be published before `RecoverOrderStatusRequest` can invoke it via `RecoverThroughMain`.
 2. Send a fresh plain-text email from your controlled sender account to the receiver account (e.g., *"Where is order 1001?"*) and apply the `order-status-reply-drafter/demo-input` label on arrival.
 3. Wait for the 1-minute poll trigger to run and verify:
    - A reply draft is created inside the original Gmail thread (not sent).
    - The source message receives the `order-status-reply-drafter/triaged` label.
    - The PostgreSQL ledger row reaches `phase = 'Completed'` and `status = 'Completed'`.
 4. **Inspect every draft** before manually sending.
-5. **Deactivate/unpublish `DraftOrderStatusReply`** when finished with supervised testing.
-   - *Never remove the `triaged` label or delete ledger rows to replay a message.* If an execution fails mid-flight, follow the [Operator Recovery Guide](order-status-recovery-guide.md).
+5. **Deactivate/unpublish `DraftOrderStatusReply` and `RecoverOrderStatusRequest`** when finished with supervised testing.
+   - *Never remove the `triaged` label or delete ledger rows to replay a message.* For details on automated 5-minute sweeps and manual `NeedsInspection` recovery overrides, follow the [Operator Recovery Guide](order-status-recovery-guide.md).
 
 ---
 
