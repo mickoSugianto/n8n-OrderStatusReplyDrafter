@@ -1,0 +1,262 @@
+{
+  "name": "NotifyOrderStatusError",
+  "nodes": [
+    {
+      "id": "err-receive-workflow-error",
+      "name": "ReceiveWorkflowError",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "err-receive-alert-request",
+      "name": "ReceiveAlertRequest",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        224
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "payload",
+              "type": "object"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "err-alert-input-envelope",
+      "name": "AlertInputEnvelope",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        320,
+        112
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "err-error-alert-config",
+      "name": "ErrorAlertConfig",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        640,
+        112
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-slack-channel-id",
+              "name": "slackChannelId",
+              "value": "<SLACK_ERROR_CHANNEL_ID>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Centralized error alert configuration: replace <SLACK_ERROR_CHANNEL_ID> with the channel ID of #order-status-drafter-alerts."
+    },
+    {
+      "id": "err-parse-error-to-slack-alert",
+      "name": "ParseErrorToSlackAlert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        960,
+        112
+      ],
+      "executeOnce": true,
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ (function formatErrorAlert(input, config) {\n  function escapeSlack(text, inCode = false) {\n    const clean = String(text ?? \"\")\n      .replace(/&/g, \"&amp;\")\n      .replace(/</g, \"&lt;\")\n      .replace(/>/g, \"&gt;\")\n      .replace(/`/g, \"\");\n    return inCode ? clean.replace(/[*_~]/g, \"\") : clean;\n  }\n\n  function sanitizeReason(text) {\n    let clean = String(text ?? \"\").replace(/\\s+/g, \" \").trim();\n    clean = clean.replace(\n      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g,\n      \"[REDACTED_EMAIL]\",\n    );\n    clean = clean.replace(\n      /(?:\"[^\"]{16,}\"|'[^']{16,}'|`[^`]{16,}`)/g,\n      \"[REDACTED_TEXT]\",\n    );\n    clean = escapeSlack(clean);\n    if (clean.length > 160) {\n      clean = clean.slice(0, 159).replace(/&[a-z]*$/i, \"\") + \"…\";\n    }\n    return clean;\n  }\n\n  const nonEmptyString = (val) =>\n    typeof val === \"string\" && val.trim().length > 0 ? val.trim() : null;\n  const firstString = (...vals) => {\n    for (const val of vals) {\n      const str = nonEmptyString(val);\n      if (str !== null) return str;\n    }\n    return null;\n  };\n\n  const root =\n    input &&\n    typeof input === \"object\" &&\n    !Array.isArray(input) &&\n    input.payload &&\n    typeof input.payload === \"object\" &&\n    !Array.isArray(input.payload)\n      ? input.payload\n      : input && typeof input === \"object\" && !Array.isArray(input)\n        ? input\n        : {};\n\n  const workflow =\n    root.workflow && typeof root.workflow === \"object\" ? root.workflow : {};\n  const workflow_name = nonEmptyString(workflow.name);\n\n  const hasTrigger = Boolean(\n    root.trigger && typeof root.trigger === \"object\" && !Array.isArray(root.trigger),\n  );\n  const hasExecution = Boolean(\n    root.execution &&\n      typeof root.execution === \"object\" &&\n      !Array.isArray(root.execution),\n  );\n  const isTriggerFailure = hasTrigger && !hasExecution;\n\n  const trigger = hasTrigger ? root.trigger : {};\n  const execution = hasExecution ? root.execution : {};\n\n  const execution_id =\n    !isTriggerFailure &&\n    execution.id != null &&\n    String(execution.id).trim() !== \"\"\n      ? String(execution.id).trim()\n      : null;\n  const execution_url = !isTriggerFailure\n    ? nonEmptyString(execution.url)\n    : null;\n  const failed_node = !isTriggerFailure\n    ? nonEmptyString(execution.lastNodeExecuted)\n    : null;\n\n  const rawExecError = !isTriggerFailure\n    ? firstString(execution.error?.message, execution.error)\n    : null;\n  const rawTriggerError = isTriggerFailure\n    ? firstString(trigger.error?.message, trigger.error)\n    : null;\n\n  const parseJsonObject = (val) => {\n    const str = nonEmptyString(val);\n    if (str === null || !str.startsWith(\"{\") || !str.endsWith(\"}\")) {\n      return null;\n    }\n    try {\n      const candidate = JSON.parse(str);\n      return candidate &&\n        typeof candidate === \"object\" &&\n        !Array.isArray(candidate)\n        ? candidate\n        : null;\n    } catch (_) {\n      return null;\n    }\n  };\n  const nonJsonString = (val) => {\n    const str = nonEmptyString(val);\n    return str !== null && parseJsonObject(str) === null ? str : null;\n  };\n\n  const parsed = parseJsonObject(rawExecError);\n  const rawNestedError = firstString(parsed?.error?.message, parsed?.error);\n  const nestedParsed = parseJsonObject(rawNestedError);\n\n  const quarantineObj =\n    parsed?.quarantine &&\n    typeof parsed.quarantine === \"object\" &&\n    !Array.isArray(parsed.quarantine)\n      ? parsed.quarantine\n      : null;\n  const recordObj =\n    parsed?.record &&\n    typeof parsed.record === \"object\" &&\n    !Array.isArray(parsed.record)\n      ? parsed.record\n      : quarantineObj?.record &&\n          typeof quarantineObj.record === \"object\" &&\n          !Array.isArray(quarantineObj.record)\n        ? quarantineObj.record\n        : null;\n\n  const reasonSource = nestedParsed || parsed;\n  const reasonQuarantine =\n    reasonSource?.quarantine &&\n    typeof reasonSource.quarantine === \"object\" &&\n    !Array.isArray(reasonSource.quarantine)\n      ? reasonSource.quarantine\n      : null;\n  const reasonRecord =\n    reasonSource?.record &&\n    typeof reasonSource.record === \"object\" &&\n    !Array.isArray(reasonSource.record)\n      ? reasonSource.record\n      : reasonQuarantine?.record &&\n          typeof reasonQuarantine.record === \"object\" &&\n          !Array.isArray(reasonQuarantine.record)\n        ? reasonQuarantine.record\n        : null;\n\n  let classification;\n  let title;\n\n  if (isTriggerFailure) {\n    classification = \"trigger_failure\";\n    title = \"Trigger Failure\";\n  } else if (workflow_name === \"RecoverOrderStatusRequest\") {\n    classification = \"recovery_sweep_failed\";\n    title = \"Recovery Sweep Failed\";\n  } else if (quarantineObj?.quarantined === true && recordObj !== null) {\n    classification = \"quarantined_needs_inspection\";\n    title = \"Needs Inspection (quarantined)\";\n  } else if (recordObj !== null) {\n    classification = \"post_claim_needs_inspection\";\n    title =\n      recordObj.phase === \"DraftIntentRecorded\"\n        ? \"Needs Inspection (uncertain Gmail write)\"\n        : \"Needs Inspection\";\n  } else {\n    classification = \"pre_claim_or_unhandled\";\n    title = \"Pre-Claim or Unhandled Error\";\n  }\n\n  const rawReason = isTriggerFailure\n    ? rawTriggerError || \"(non-string error omitted)\"\n    : firstString(\n        reasonQuarantine?.quarantined === true\n          ? reasonRecord?.recovery?.last_quarantine?.error\n          : null,\n        reasonRecord?.last_error,\n        reasonSource?.reason,\n        nonJsonString(\n          nestedParsed\n            ? firstString(nestedParsed.error?.message, nestedParsed.error)\n            : rawNestedError,\n        ),\n        reasonQuarantine?.result,\n        parsed ? null : rawExecError,\n      ) || \"(non-string error omitted)\";\n\n  const hasRecord = recordObj !== null;\n  const source_message_id = firstString(\n    recordObj?.source_message_id,\n    parsed?.sourceMessageId,\n    parsed?.source_message_id,\n  );\n  const thread_id = hasRecord ? nonEmptyString(recordObj?.thread_id) : null;\n  const phase = hasRecord ? nonEmptyString(recordObj?.phase) : null;\n  const status = hasRecord ? nonEmptyString(recordObj?.status) : null;\n  const outcome = hasRecord ? nonEmptyString(recordObj?.outcome) : null;\n  const recovery_attempts =\n    hasRecord &&\n    typeof recordObj?.recovery_attempts === \"number\" &&\n    Number.isFinite(recordObj.recovery_attempts)\n      ? recordObj.recovery_attempts\n      : null;\n  const owner_token = firstString(\n    recordObj?.owner_token,\n    parsed?.expectedOwnerToken,\n    parsed?.owner_token,\n  );\n  const draft_id = hasRecord ? nonEmptyString(recordObj?.draft_id) : null;\n\n  const reason = sanitizeReason(rawReason);\n\n  const lines = [\n    `:rotating_light: *Order Status Drafter — ${escapeSlack(title)}*`,\n  ];\n\n  if (!isTriggerFailure && (execution_id || execution_url || failed_node)) {\n    const execParts = [];\n    if (execution_url && execution_id) {\n      execParts.push(\n        `<${escapeSlack(execution_url)}|#${escapeSlack(execution_id, true)}>`,\n      );\n    } else if (execution_id) {\n      execParts.push(`#${escapeSlack(execution_id, true)}`);\n    } else if (execution_url) {\n      execParts.push(`<${escapeSlack(execution_url)}>`);\n    }\n    if (workflow_name) {\n      execParts.push(escapeSlack(workflow_name));\n    }\n    if (failed_node) {\n      execParts.push(`failed at \\`${escapeSlack(failed_node, true)}\\``);\n    }\n    lines.push(`• *Execution:* ${execParts.join(\" · \")}`);\n  }\n\n  if (source_message_id || thread_id) {\n    const emailParts = [];\n    if (source_message_id) {\n      emailParts.push(`source=\\`${escapeSlack(source_message_id, true)}\\``);\n    }\n    if (thread_id) {\n      emailParts.push(`thread=\\`${escapeSlack(thread_id, true)}\\``);\n    }\n    lines.push(`• *Email:* ${emailParts.join(\" · \")}`);\n  }\n\n  if (phase || status || outcome || recovery_attempts !== null) {\n    const ledgerParts = [];\n    if (phase) ledgerParts.push(`phase=\\`${escapeSlack(phase, true)}\\``);\n    if (status) ledgerParts.push(`status=\\`${escapeSlack(status, true)}\\``);\n    if (outcome) ledgerParts.push(`outcome=\\`${escapeSlack(outcome, true)}\\``);\n    if (recovery_attempts !== null) {\n      ledgerParts.push(\n        `attempts=\\`${escapeSlack(String(recovery_attempts), true)}\\``,\n      );\n    }\n    lines.push(`• *Ledger:* ${ledgerParts.join(\" · \")}`);\n  }\n\n  if (owner_token || draft_id) {\n    const recoveryParts = [];\n    if (owner_token) {\n      recoveryParts.push(\n        `expectedOwnerToken=\\`${escapeSlack(owner_token, true)}\\``,\n      );\n    }\n    if (draft_id) {\n      recoveryParts.push(`draft=\\`${escapeSlack(draft_id, true)}\\``);\n    }\n    lines.push(`• *Recovery inputs:* ${recoveryParts.join(\" · \")}`);\n  }\n\n  lines.push(`• *Reason:* ${reason}`);\n\n  return {\n    classification,\n    reason,\n    workflow_name,\n    execution_id,\n    execution_url,\n    failed_node,\n    source_message_id,\n    thread_id,\n    phase,\n    status,\n    outcome,\n    recovery_attempts,\n    owner_token,\n    draft_id,\n    slack_text: lines.join(\"\\n\"),\n  };\n})($('AlertInputEnvelope').first().json, $('ErrorAlertConfig').first().json) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "err-send-slack-error-alert",
+      "name": "SendSlackErrorAlert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1280,
+        112
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('ErrorAlertConfig').item.json.slackChannelId }}"
+        },
+        "text": "={{ $('ParseErrorToSlackAlert').item.json.slack_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "mrkdwn": true,
+          "link_names": false
+        }
+      }
+    },
+    {
+      "id": "err-return-alert-receipt",
+      "name": "ReturnAlertReceipt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1600,
+        112
+      ],
+      "executeOnce": true,
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "receipt-classification",
+              "name": "classification",
+              "value": "={{ $('ParseErrorToSlackAlert').item.json.classification }}",
+              "type": "string"
+            },
+            {
+              "id": "receipt-channel-id",
+              "name": "channel_id",
+              "value": "={{ $('ErrorAlertConfig').item.json.slackChannelId }}",
+              "type": "string"
+            },
+            {
+              "id": "receipt-slack-ts",
+              "name": "slack_ts",
+              "value": "={{ $('SendSlackErrorAlert').item.json.ts || $('SendSlackErrorAlert').item.json.message?.ts || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 01 — Receive & configure error alert\nAccept native workflow error events or synthetic callable test payloads, converge into a single input envelope, and set the destination Slack alert channel ID.",
+        "width": 928,
+        "height": 544,
+        "color": 4
+      },
+      "id": "error-lane-01",
+      "name": "ErrorTriggerLane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 02 — Parse, sanitize & deliver Slack alert\nClassify the failure, allowlist and redact fields through the shared error policy, post the alert to Slack with bounded retries, and return the delivery receipt.",
+        "width": 960,
+        "height": 544,
+        "color": 5
+      },
+      "id": "error-lane-02",
+      "name": "ErrorDeliveryLane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -144
+      ]
+    }
+  ],
+  "connections": {
+    "ReceiveWorkflowError": {
+      "main": [
+        [
+          {
+            "node": "AlertInputEnvelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReceiveAlertRequest": {
+      "main": [
+        [
+          {
+            "node": "AlertInputEnvelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AlertInputEnvelope": {
+      "main": [
+        [
+          {
+            "node": "ErrorAlertConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ErrorAlertConfig": {
+      "main": [
+        [
+          {
+            "node": "ParseErrorToSlackAlert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ParseErrorToSlackAlert": {
+      "main": [
+        [
+          {
+            "node": "SendSlackErrorAlert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SendSlackErrorAlert": {
+      "main": [
+        [
+          {
+            "node": "ReturnAlertReceipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false
+}

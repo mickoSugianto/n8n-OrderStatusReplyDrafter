@@ -1,7 +1,9 @@
 "use strict";
 const assert = require("node:assert/strict");
 const policy = require("../src/main-policy"),
-  validator = require("../src/validate-order");
+  validator = require("../src/validate-order"),
+  errorPolicy = require("../src/error-policy");
+const policies = { ...policy, ...errorPolicy };
 const { cases } = require("./fixtures/order-fixtures");
 const { checkSourceLinkage } = require("./check-source-linkage");
 let logicPassed = 0,
@@ -33,15 +35,42 @@ for (const c of cases.filter((c) => c.mode !== "lookup"))
   });
 for (const c of require("./fixtures/policy-cases.json"))
   check("LOGIC", c.fn + "/" + c.id, () => {
+    const fn = policies[c.fn];
+    assert.equal(typeof fn, "function", "missing policy function " + c.fn);
     if (c.throws) {
-      assert.throws(() => policy[c.fn](...c.args), new RegExp(c.throws));
+      assert.throws(() => fn(...c.args), new RegExp(c.throws));
       return;
     }
-    const actual = policy[c.fn](...c.args);
+    const actual = fn(...c.args);
     for (const [key, value] of Object.entries(c.expected))
       assert.deepEqual(actual[key], value, key);
     for (const key of c.absent || [])
       assert.equal(actual[key], undefined, "unverified " + key);
+    for (const sub of c.includes || [])
+      assert(
+        typeof actual.slack_text === "string" && actual.slack_text.includes(sub),
+        "missing expected slack_text substring: " + sub,
+      );
+    if (c.forbidden && c.forbidden.length > 0) {
+      const serialized = JSON.stringify(actual);
+      for (const bad of c.forbidden) {
+        assert(
+          !actual.slack_text?.includes(bad),
+          "forbidden string leaked in slack_text: " + bad,
+        );
+        assert(
+          !serialized.includes(bad),
+          "forbidden string leaked in output object: " + bad,
+        );
+      }
+    }
+    if (typeof c.maxReasonLength === "number") {
+      assert(
+        typeof actual.reason === "string" &&
+          actual.reason.length <= c.maxReasonLength,
+        "reason length exceeds " + c.maxReasonLength,
+      );
+    }
   });
 check("AUDIT", "captured-source-linkage", () =>
   checkSourceLinkage(
@@ -49,6 +78,7 @@ check("AUDIT", "captured-source-linkage", () =>
     require("../src/model-definitions.json"),
     policy,
     validator,
+    errorPolicy,
   ),
 );
 check("AUDIT", "model-dataset-scope", () => {

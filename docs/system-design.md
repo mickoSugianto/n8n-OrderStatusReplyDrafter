@@ -643,11 +643,11 @@ Keeping completed keys is part of correctness. Deleting them, recreating the tab
 
 ## 7. Failure handling and supervised recovery
 
-**Recording failures and Option B alerting.** `UnfinishedWork` is where handled failures converge. `RecordUnfinishedWork` (`onError: "continueErrorOutput"`) calls `checkpoint_order_status_request(action='failure')` for the current owner while the row is `Running`, preserving the actual current phase:
+**Recording failures and alerting boundary.** `UnfinishedWork` is where handled failures converge. `RecordUnfinishedWork` (`onError: "continueErrorOutput"`) calls `checkpoint_order_status_request(action='failure')` for the current owner while the row is `Running`, preserving the actual current phase:
 
 - When `inspection = 'true'` (recognized content/recipient/confirmation mismatch) **or** `recovery_attempts >= 1` (the automated retry itself failed), PostgreSQL sets `status = 'NeedsInspection'`.
 - Otherwise, when `recovery_attempts = 0` on a first-time operational failure (including `DraftIntentRecorded` create or checkpoint timeouts), PostgreSQL sets `status = 'NeedsRecovery'`.
-- **Option B Alerting (`NeedsImmediateAlert`):**
+- **Alerting Boundary (`NeedsImmediateAlert`):**
   - If `RecordUnfinishedWork` succeeds and returns `status = 'NeedsRecovery'`, `NeedsImmediateAlert` routes to `ReturnQueuedForAutoRecovery` (**quiet exit**, no exception thrown). This prevents false-alarm error notifications for first-time transient blips that will be self-healed by the 5-minute sweeper.
   - If `RecordUnfinishedWork` returns `status = 'NeedsInspection'`—or if `RecordUnfinishedWork` itself errors or is reached from a pre-claim outage—execution routes to `StopVisiblyWithoutTriage` (**visible failure**, throwing a structured error). Likewise, Phase `00` pre-transfer quarantines (`QuarantineRecoveryRequest` → `QuarantineApplied`) route to `StopVisiblyWithoutTriage` **exactly once** when `quarantined === true`, and exit quietly via `ReturnQuarantineSkipped` if already quarantined/completed or on a benign CAS conflict.
 
@@ -663,6 +663,22 @@ Keeping completed keys is part of correctness. Deleting them, recreating the tab
 | Label write/read/verification or final checkpoint failure | `LabelsPending` if reached; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Some/all labels may already exist | Auto-sweeper or manual recovery re-reads source/draft and finishes same outcome after CAS transfer |
 | Cancellation, process crash, instance outage | Last phase, possibly still `Running` | Any already issued request may settle later | Sweeper selects stale `Running` rows after 5m cooldown; Phase `00` enforces terminal check + 60s settle window (or 10m zombie quarantine) |
 | Observer API/setup/missing evidence, runner restoration failure | Test session error/active state; application ledger remains independent | Fixtures/main startup may already have happened | Inspect session and restore main; remaining cases NOT_RUN, no resend or false PASS |
+
+### Stateless error alerting (`NotifyOrderStatusError`)
+
+When a workflow execution terminates in an unhandled error or reaches a visible failure stop (`StopVisiblyWithoutTriage` in `DraftOrderStatusReply`, `VerifySweepBatchOutcome` in `RecoverOrderStatusRequest`, or a polling trigger failure), n8n invokes **`NotifyOrderStatusError`** ([`workflows/notify-order-status-error.json`](../workflows/notify-order-status-error.json)), attached via **Workflow Settings → Error Workflow**:
+
+- **Zero shared failure dependencies:** `NotifyOrderStatusError` is completely stateless and makes zero PostgreSQL, Gmail, Google Sheets, or LLM calls. Its 7-node pipeline (`ReceiveWorkflowError` / `ReceiveAlertRequest` $\rightarrow$ `AlertInputEnvelope` $\rightarrow$ `ErrorAlertConfig` $\rightarrow$ `ParseErrorToSlackAlert` $\rightarrow$ `SendSlackErrorAlert` $\rightarrow$ `ReturnAlertReceipt`) depends only on Slack (`retryOnFail: true`, `maxTries: 3`, `waitBetweenTries: 3000` ms) and never sets `errorWorkflow` on itself.
+- **Alerting boundary:** First-time transient post-claim failures (`status = 'NeedsRecovery'`, `recovery_attempts = 0`) exit quietly via `NeedsImmediateAlert` $\rightarrow$ `ReturnQueuedForAutoRecovery` so the 5-minute sweeper can self-heal without paging operators. Only terminal `NeedsInspection` / quarantine transitions, pre-claim outages, trigger failures, and sweeper errors fail visibly and trigger Slack alerts.
+- **Strict allowlist & PII redaction (`src/error-policy.js`):** `ParseErrorToSlackAlert` parses the structured JSON message emitted by `StopVisiblyWithoutTriage` / `VerifySweepBatchOutcome`, extracts only allowlisted operational fields (`source_message_id`, `phase`, `status`, `recovery_attempts`), strips email addresses and quoted customer/prompt text via `sanitizeReason()`, and neutralizes Slack mrkdwn/mention tokens (`&`, `<`, `>`, `@here`, `@channel`) via `escapeSlack()`.
+
+| Parent category | Alert `classification` | Trigger condition in `formatErrorAlert` | Ledger state & operator path |
+| --- | --- | --- | --- |
+| **Infrastructure / Integration Failure** | `trigger_failure` | `trigger` object present without `execution` (pre-execution polling failure) | No ledger row; re-authenticate or repair Gmail / Schedule trigger credential |
+| **Infrastructure / Integration Failure** | `recovery_sweep_failed` | Failing workflow is `RecoverOrderStatusRequest` (sweeper DB outage or `VerifySweepBatchOutcome` rollup) | Inspect linked execution or candidate `source_message_id` / `owner_token` if present; verify Postgres connectivity |
+| **Infrastructure / Integration Failure** | `pre_claim_or_unhandled` | Execution failed without an attached ledger `record` (e.g., `ReadMailboxIdentity`, `ClaimSourceAtomically`, or unapplied checkpoint/quarantine) | No owned ledger transition; verify Gmail OAuth2 and Postgres credentials so untriaged messages can be polled |
+| **Ledger `status = 'NeedsInspection'`** | `quarantined_needs_inspection` | Phase `00` `QuarantineRecoveryRequest` applied (`parsed.quarantined === true`) | Row parked in `status = 'NeedsInspection'`; inspect ledger row, Gmail thread/drafts, and run manual recovery |
+| **Ledger `status = 'NeedsInspection'`** | `post_claim_needs_inspection` | Owned ledger `record` present after post-claim failure (`recovery_attempts >= 1`, content/recipient mismatch, or unexpected stop) | Row parked in `status = 'NeedsInspection'`; inspect phase (`Processing`, `DraftIntentRecorded`, `DraftSaved`, `LabelsPending`) and run manual recovery |
 
 ### How automated and manual recovery proceed
 
@@ -884,15 +900,16 @@ Native version selection and the configured ledger fingerprint are separate chec
 3. Establish the dedicated database once in a new project and set its password privately. Bind and verify native Postgres access. Preserve existing objects rather than dropping collisions.
 4. Import the Orders CSV as text and verify the actual A:F values.
 5. Bind the following:
-   - Gmail, Sheets, provider and n8n credentials,
+   - Gmail, Sheets, provider, Slack and n8n credentials,
    - the receiver profile expectation,
    - both recipient allowlists,
    - the exact input, triaged and review label IDs,
+   - the Slack error alert channel ID (`<SLACK_ERROR_CHANNEL_ID>` in `ErrorAlertConfig`),
    - the spreadsheet and tab, and
    - the main and GetOrder references.
 6. Rebind business text and the synthetic customer addresses deliberately.
-7. Validate and read back GetOrder, and publish the callable dependency before main needs it.
-8. Bind manual recovery to the imported main.
+7. Validate and read back GetOrder and NotifyOrderStatusError; publish GetOrder and activate/publish NotifyOrderStatusError before activating main or the recovery sweeper.
+8. Bind `RecoverOrderStatusRequest` to the imported main, and select `NotifyOrderStatusError` under **Workflow Settings → Error Workflow** in the n8n UI on both `DraftOrderStatusReply` and `RecoverOrderStatusRequest`.
 9. For optional tests, additionally set up separate Data Tables and the observer/Sender bindings, and publish the selected validated callable helpers before the runner calls them. Keep the model evaluator and the runner inactive/manual.
 
 Importing an export, publishing a callable helper, manually invoking recovery and activating the main poller are four distinct actions. At final source closure, main was unpublished/inactive and GetOrder remained callable. The inactive flags in the package are transport defaults; they are not an instruction to start everything.
@@ -917,18 +934,19 @@ Importing an export, publishing a callable helper, manually invoking recovery an
 - If delivery is uncertain, do not resend automatically.
 - If restoration fails, inspect the saved starting state and the candidate, stop main as required, and reconcile the session.
 - A killed runner can leave main active and its session row active. No crash-proof cleanup is claimed.
-- For an unresolved application request, follow the [manual recovery procedure](order-status-recovery-guide.md): inspect the exact ledger row, source, draft and native execution, and run one selection only after the evidence has settled.
+- For a Slack error alert in `#order-status-drafter-alerts` (or an unresolved application request), follow the [operator recovery guide](order-status-recovery-guide.md): match the alert `classification` to its triage action, inspect the exact ledger row, source, draft and native execution (or check `NotifyOrderStatusError` failed executions in n8n if Slack is unreachable), and run manual recovery only after the evidence has settled.
 
 ### Visibility and retention
 
-Visibility comes from four places:
+Visibility comes from five places:
 
 1. ledger phase, status, owner and intent,
 2. native execution steps and errors,
-3. optional test session summaries, and
-4. actual Gmail source, draft and label readback.
+3. sanitized Slack error alerts from `NotifyOrderStatusError` (`#order-status-drafter-alerts`),
+4. optional test session summaries, and
+5. actual Gmail source, draft and label readback.
 
-There is no monitoring dashboard, automatic alerting or retry service.
+There is no external monitoring dashboard or automated ledger purge service.
 
 - Retention for successful, error and manual executions is configured in the main export. Actual host retention, pruning and backups are the operator's responsibility.
 - Before a migration, back up the ledger identity and recovery data, and verify the restoration privately.
@@ -1029,10 +1047,6 @@ Known weaknesses:
 - Trusted database workers can bypass workflow discipline.
 - Gmail cannot join the ledger transaction.
 
-Deferred possibilities: real-store authorization, unattended recovery, alerting, broader inputs and measured production operation.
+Deferred possibilities: real-store authorization, automated ledger pruning, broader inputs and measured production operation.
 
 This document establishes an explainable as-built baseline. It is not a promise of production readiness.
-
----
-
-**Documentation verification (2026-10-21).** Local sanitized artifacts only. Contracts, guard names, SQL phases and functions, and provider settings were checked against the supplied exports and definitions. All local evidence links and contents anchors resolve. The nine Mermaid blocks, including four sequences, received structural checks and a syntax review. No local Mermaid parser or renderer was available, so no rendered-diagram inspection is claimed. The synthetic JSON examples parse. No services, runtime tests or live-state checks were used.

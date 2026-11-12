@@ -88,7 +88,7 @@ The main workflow canvas is organized into nine numbered phases (`00`–`08`):
 
 ## Supervised Recovery
 
-If an execution fails or stops mid-flight, the operator uses `RecoverOrderStatusRequest` after inspecting the ledger row, confirming the prior n8n execution is terminal, and verifying Gmail state:
+First-time transient post-claim failures (`status = 'NeedsRecovery'`, `recovery_attempts = 0`) exit quietly so `RecoverOrderStatusRequest` can self-heal them on its 5-minute schedule. When human intervention is required—such as terminal `NeedsInspection` / quarantine transitions, pre-claim/trigger failures, or sweeper outages—`NotifyOrderStatusError` posts a sanitized Slack alert to `#order-status-drafter-alerts` and the operator uses `RecoverOrderStatusRequest` after inspecting the ledger row, confirming the prior n8n execution is terminal, and verifying Gmail state:
 
 - **`Processing`** — Re-runs validation, extraction, lookup, and drafting under the new owner token.
 - **`DraftSaved` / `LabelsPending` (draft)** — Reads back and verifies the existing Gmail draft, then completes missing labels without calling models or creating a second draft.
@@ -134,12 +134,13 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 | [`workflows/main-workflow.json`](workflows/main-workflow.json) | Main workflow (`DraftOrderStatusReply`) |
 | [`workflows/get-order.json`](workflows/get-order.json) | Deterministic order lookup sub-workflow (`GetOrder`) |
 | [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json) | Supervised manual recovery caller (`RecoverOrderStatusRequest`) |
+| [`workflows/notify-order-status-error.json`](workflows/notify-order-status-error.json) | Stateless Slack error-alerting workflow (`NotifyOrderStatusError`) |
 | [`database/sample-orders.csv`](database/sample-orders.csv) | Synthetic sample orders (import all columns as plain text) |
 | [`database/order-status-ledger.sql`](database/order-status-ledger.sql) | PostgreSQL table, constraints, RLS, role, and RPC functions |
 | [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql) | Read-only preflight verification SQL |
 | [`docs/system-design.md`](docs/system-design.md) | Full as-built architecture, data contracts, state machines, and sequence diagrams |
 | [`docs/setup-and-rebinding.md`](docs/setup-and-rebinding.md) | Step-by-step installation and credential/resource binding guide |
-| [`docs/rebinding-map.md`](docs/rebinding-map.md) | Complete checklist of placeholders across all 7 workflows |
+| [`docs/rebinding-map.md`](docs/rebinding-map.md) | Complete checklist of placeholders across all 8 workflows |
 | [`docs/ledger-database-setup.md`](docs/ledger-database-setup.md) | Supabase PostgreSQL setup and security instructions |
 | [`docs/order-status-recovery-guide.md`](docs/order-status-recovery-guide.md) | Operator runbook for recovering interrupted executions |
 | [`docs/demo-test-cases.md`](docs/demo-test-cases.md) | Specification of the 10 end-to-end functional scenarios (`S01`–`S10`) |
@@ -157,12 +158,12 @@ Requires Node.js (built-in modules only; no `npm install` or network access need
 ```sh
 node tests/run-regression.js
 node tests/check-recovery.js
-node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json
+node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json
 ```
 
-- `run-regression.js` runs **246 unit/policy test cases** and **3 static audits**.
-- `check-recovery.js` runs **57 offline recovery, guard, and snapshot checks**.
-- `check-source-linkage.js` verifies that **15 inline runtime expressions** and **both model stage prompts/schemas/settings** in the workflow JSON exports match the shared policy libraries.
+- `run-regression.js` runs **261 unit/policy test cases** and **3 static audits**.
+- `check-recovery.js` runs **74 offline recovery, guard, and snapshot checks**.
+- `check-source-linkage.js` verifies that **16 inline runtime expressions** across `main-workflow.json`, `get-order.json`, and `notify-order-status-error.json` and **both model stage prompts/schemas/settings** match the shared policy libraries.
 
 ---
 
@@ -172,8 +173,8 @@ Recorded verification in the controlled source environment (October 20, 2026):
 
 | Verification Layer | Recorded Result |
 | --- | --- |
-| **Offline Policy & Validator Suite** | **246 / 246 passed** + 3 static/source audits |
-| **Offline Recovery & Guard Checks** | **57 / 57 passed** (plus 107 observer/control checks) |
+| **Offline Policy & Validator Suite** | **261 / 261 passed** + 3 static/source audits |
+| **Offline Recovery & Guard Checks** | **74 / 74 passed** (plus 107 observer/control checks) |
 | **Native Model-Stage Evaluation** | **8 / 8 passed** on Groq `qwen/qwen3.8-27b` (5 extraction, 3 drafting; 8 calls, 3,892 total tokens) |
 | **End-to-End Functional Regression** | **10 / 10 passed** (`S01`–`S10`: 6 verified drafts, 4 manual reviews, 0 customer emails sent, initial workflow state restored) |
 | **Focused Reliability Proofs** | Overlapping concurrent claim exclusion, same-draft recovery, review-label recovery, completed-source skip, and uncertain-write refusal (`DraftIntentRecorded` with simulated checkpoint loss) |

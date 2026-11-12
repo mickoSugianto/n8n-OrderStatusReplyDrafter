@@ -14,10 +14,11 @@ Before importing workflows, provision or upgrade the PostgreSQL ledger in Supaba
 
 ## Step 2: Import the Core Workflows (Inactive)
 
-Import the following three workflow exports into n8n and keep them **inactive** during configuration:
+Import the following four workflow exports into n8n and keep them **inactive** during configuration:
 1. [`workflows/get-order.json`](../workflows/get-order.json) (`GetOrder`)
-2. [`workflows/main-workflow.json`](../workflows/main-workflow.json) (`DraftOrderStatusReply`)
-3. [`workflows/recover-order-status-request.json`](../workflows/recover-order-status-request.json) (`RecoverOrderStatusRequest`)
+2. [`workflows/notify-order-status-error.json`](../workflows/notify-order-status-error.json) (`NotifyOrderStatusError`)
+3. [`workflows/main-workflow.json`](../workflows/main-workflow.json) (`DraftOrderStatusReply`)
+4. [`workflows/recover-order-status-request.json`](../workflows/recover-order-status-request.json) (`RecoverOrderStatusRequest`)
 
 ---
 
@@ -33,6 +34,7 @@ Create or select credentials in n8n and explicitly verify the bound account on *
 | **Google Sheets OAuth2 API** (`googleSheetsOAuth2Api`) | `ReadAllOrders` in `GetOrder` |
 | **Groq API** (`groqApi`) | `GroqExtractionModel` and `GroqDraftingModel` subnodes |
 | **OpenRouter API** (`openRouterApi`) | `OpenRouterExtractionModel` and `OpenRouterDraftingModel` subnodes |
+| **Slack API** (`slackApi`) | `SendSlackErrorAlert` in `NotifyOrderStatusError` (invite your Slack bot/app to `#order-status-drafter-alerts` and ensure your n8n editor base URL / `WEBHOOK_URL` is configured so `execution.url` links are populated in alerts) |
 
 *Note: Ensure Google Drive API is enabled in your Google Cloud project if n8n requires it for spreadsheet resource discovery.*
 
@@ -89,13 +91,14 @@ Gmail REST API operations require internal IDs (e.g. `Label_1`), not label names
    - `order-status-reply-drafter/needs-review` → `<REVIEW_LABEL_ID>` (e.g. `Label_3`)
 5. Close and discard the scratch workflow.
 
-### 3. Rebind Resource & Workflow Placeholders (5 Nodes Total)
+### 3. Rebind Resource & Workflow Placeholders (6 Nodes Total)
 
-All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), recovery sweep settings live in **`SelectUnresolvedRequest`** inside `RecoverOrderStatusRequest`, `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
+All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), Slack error alert channel configuration lives in **`ErrorAlertConfig`** inside `NotifyOrderStatusError`, recovery sweep settings live in **`SelectUnresolvedRequest`** inside `RecoverOrderStatusRequest`, `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
 
 | Node | Workflow | Action |
 | --- | --- | --- |
 | **`ReadAllOrders`** | `GetOrder` | Select your Google Sheet (`<SPREADSHEET_ID>`) and the `Orders` tab (`<ORDERS_TAB_ID>`) from the dropdowns (keep range `A:F` and read all rows) |
+| **`ErrorAlertConfig`** | `NotifyOrderStatusError` (Phase `01`) | Replace `slackChannelId` (`<SLACK_ERROR_CHANNEL_ID>`) with your Slack channel ID for `#order-status-drafter-alerts` |
 | **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
 | **`GetOrderDeterministically`** | `DraftOrderStatusReply` (Phase `04`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
 | **`SelectUnresolvedRequest`** | `RecoverOrderStatusRequest` | Replace `receiverEmail` (`controlled-receiver@example.com`) with your authenticated support receiver Gmail address (keep `cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`, and leave manual override fields blank/false) |
@@ -103,7 +106,7 @@ All label IDs and email addresses inside `DraftOrderStatusReply` are centralized
 
 ---
 
-## Step 7: Verify Model Settings & Publish `GetOrder`
+## Step 7: Verify Model Settings, Publish Dependencies & Attach `Error Workflow`
 
 ### Accepted Model Configuration
 
@@ -113,17 +116,18 @@ All label IDs and email addresses inside `DraftOrderStatusReply` are centralized
 | **OpenRouter** (Extraction Fallback) | `openrouter/free`, `temperature: 0`, `maxTokens: 1024`, `timeout: 60000` ms, `maxRetries: 0` |
 | **OpenRouter** (Drafting Fallback) | `openrouter/free`, `temperature: 0`, `maxTokens: 4096`, `timeout: 60000` ms, `maxRetries: 0` |
 
-### Publish `GetOrder` First
-In n8n, callable sub-workflows must be published before the parent workflow can be published/activated:
+### Publish `GetOrder` & `NotifyOrderStatusError` First
+In n8n, callable sub-workflows and error workflows must be published/activated before the parent workflows that reference them:
 1. Open `GetOrder`, verify its Google Sheets binding, and **publish** it (`GetOrder` has no polling trigger of its own).
-2. Open `DraftOrderStatusReply`, verify all connections, bindings, and that **zero test pins** exist on any node.
-3. Open `RecoverOrderStatusRequest`, verify `SelectUnresolvedRequest` (`receiverEmail`), `FindRecoverableRequests` (`OrderStatusLedger` Postgres credential), and `RecoverThroughMain` (`DraftOrderStatusReply`).
+2. Open `NotifyOrderStatusError`, verify `ErrorAlertConfig` (`slackChannelId`) and `SendSlackErrorAlert` (`slackApi` credential), and **activate/publish** it before activating `DraftOrderStatusReply` or `RecoverOrderStatusRequest`.
+3. Open `DraftOrderStatusReply`, verify all connections, bindings, and that **zero test pins** exist on any node, then open **Workflow Settings → Error Workflow** in the n8n UI and select **`NotifyOrderStatusError`**.
+4. Open `RecoverOrderStatusRequest`, verify `SelectUnresolvedRequest` (`receiverEmail`), `FindRecoverableRequests` (`OrderStatusLedger` Postgres credential), and `RecoverThroughMain` (`DraftOrderStatusReply`), then open **Workflow Settings → Error Workflow** in the n8n UI and select **`NotifyOrderStatusError`**.
 
 ---
 
 ## Step 8: Supervised Smoke Test & Operation
 
-1. **Activate `DraftOrderStatusReply`** (and optionally **`RecoverOrderStatusRequest`** for 5-minute automated recovery sweeps) only when you are ready to observe them. Note that `DraftOrderStatusReply` must be published before `RecoverOrderStatusRequest` can invoke it via `RecoverThroughMain`.
+1. **Ensure `NotifyOrderStatusError` is active**, then **activate `DraftOrderStatusReply`** (and optionally **`RecoverOrderStatusRequest`** for 5-minute automated recovery sweeps) only when you are ready to observe them. Note that `DraftOrderStatusReply` must be published before `RecoverOrderStatusRequest` can invoke it via `RecoverThroughMain`.
 2. Send a fresh plain-text email from your controlled sender account to the receiver account (e.g., *"Where is order 1001?"*) and apply the `order-status-reply-drafter/demo-input` label on arrival.
 3. Wait for the 1-minute poll trigger to run and verify:
    - A reply draft is created inside the original Gmail thread (not sent).
