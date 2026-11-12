@@ -7,6 +7,6 @@
     "test": "npm run test:unit && npm run test:recovery && npm run test:linkage",
     "test:unit": "node tests/run-regression.js",
     "test:recovery": "node tests/check-recovery.js",
-    "test:linkage": "node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json"
+    "test:linkage": "node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json"
   }
 }

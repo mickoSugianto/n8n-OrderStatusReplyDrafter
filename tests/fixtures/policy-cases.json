@@ -5329,5 +5329,684 @@
       "route": "save"
     },
     "absent": []
+  },
+  {
+    "id": "T019ErrorTriggerFailure",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "trigger": {
+          "error": {
+            "message": "invalid_grant: Token has been expired or revoked"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "trigger_failure",
+      "workflow_name": "DraftOrderStatusReply",
+      "execution_id": null,
+      "execution_url": null,
+      "failed_node": null,
+      "source_message_id": null,
+      "thread_id": null,
+      "phase": null,
+      "status": null,
+      "outcome": null,
+      "recovery_attempts": null,
+      "owner_token": null,
+      "draft_id": null,
+      "reason": "invalid_grant: Token has been expired or revoked",
+      "slack_text": ":rotating_light: *Order Status Drafter — Trigger Failure*\n• *Reason:* invalid_grant: Token has been expired or revoked"
+    },
+    "absent": [
+      "mailbox",
+      "intent",
+      "recovery",
+      "candidate_version",
+      "draft_message_id",
+      "next_step"
+    ],
+    "forbidden": [
+      "• *Execution:*",
+      "• *Email:*",
+      "• *Ledger:*",
+      "• *Recovery inputs:*",
+      "• *Next:*"
+    ]
+  },
+  {
+    "id": "T019ErrorSweeperInfraFailure",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-recover",
+          "name": "RecoverOrderStatusRequest"
+        },
+        "execution": {
+          "id": "5101",
+          "url": "https://n8n.example.com/execution/5101",
+          "lastNodeExecuted": "FindRecoverableRequests",
+          "error": {
+            "message": "connect ECONNREFUSED 10.0.0.5:5432"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "recovery_sweep_failed",
+      "workflow_name": "RecoverOrderStatusRequest",
+      "execution_id": "5101",
+      "execution_url": "https://n8n.example.com/execution/5101",
+      "failed_node": "FindRecoverableRequests",
+      "source_message_id": null,
+      "owner_token": null,
+      "reason": "connect ECONNREFUSED 10.0.0.5:5432"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Recovery Sweep Failed*",
+      "• *Execution:* <https://n8n.example.com/execution/5101|#5101> · RecoverOrderStatusRequest · failed at `FindRecoverableRequests`",
+      "• *Reason:* connect ECONNREFUSED 10.0.0.5:5432"
+    ],
+    "forbidden": [
+      "• *Email:*",
+      "• *Ledger:*",
+      "• *Recovery inputs:*"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorSweeperBatchItemRollup",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "payload": {
+          "workflow": {
+            "id": "wf-recover",
+            "name": "RecoverOrderStatusRequest"
+          },
+          "execution": {
+            "id": "5102",
+            "url": "https://n8n.example.com/execution/5102",
+            "lastNodeExecuted": "VerifySweepBatchOutcome",
+            "error": {
+              "message": "{\"mode\":\"auto\",\"sourceMessageId\":\"18c2fa91\",\"expectedOwnerToken\":\"4790\",\"settleWindowMs\":60000,\"mailbox\":\"secret-mailbox@example.com\",\"error\":{\"message\":\"{\\\"quarantine\\\":{\\\"quarantined\\\":true,\\\"result\\\":\\\"SourceReadFailedNeedsInspection\\\",\\\"record\\\":{\\\"phase\\\":\\\"Processing\\\",\\\"status\\\":\\\"NeedsInspection\\\",\\\"mailbox\\\":\\\"secret-mailbox@example.com\\\",\\\"source_message_id\\\":\\\"18c2fa91\\\",\\\"thread_id\\\":\\\"18c2fa91\\\",\\\"owner_token\\\":\\\"4790\\\",\\\"recovery_attempts\\\":0,\\\"recovery\\\":{\\\"last_quarantine\\\":{\\\"error\\\":\\\"Sub-workflow execution failed for buyer@example.com\\\"}}}}}\"}}"
+            }
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "recovery_sweep_failed",
+      "workflow_name": "RecoverOrderStatusRequest",
+      "execution_id": "5102",
+      "failed_node": "VerifySweepBatchOutcome",
+      "source_message_id": "18c2fa91",
+      "thread_id": null,
+      "phase": null,
+      "status": null,
+      "outcome": null,
+      "recovery_attempts": null,
+      "owner_token": "4790",
+      "draft_id": null,
+      "reason": "Sub-workflow execution failed for [REDACTED_EMAIL]"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Recovery Sweep Failed*",
+      "• *Email:* source=`18c2fa91`",
+      "• *Recovery inputs:* expectedOwnerToken=`4790`"
+    ],
+    "forbidden": [
+      "• *Ledger:*",
+      "secret-mailbox@example.com",
+      "buyer@example.com",
+      "{\"quarantine\""
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "settleWindowMs",
+      "mode",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorQuarantinedNeedsInspection",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4821",
+          "url": "https://n8n.example.com/execution/4821",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"quarantine\":{\"quarantined\":true,\"result\":\"Quarantined\",\"record\":{\"mailbox\":\"support@example.com\",\"source_message_id\":\"18c2fa91\",\"thread_id\":\"18c2fa80\",\"owner_token\":\"4790\",\"phase\":\"DraftSaved\",\"status\":\"NeedsInspection\",\"outcome\":\"draft_ready\",\"recovery_attempts\":1,\"draft_id\":\"r-55120\",\"last_error\":\"EarlierTransientError\",\"recovery\":{\"last_quarantine\":{\"error\":\"PreviousExecutionTimedOutNeedsInspection\",\"execution_id\":\"4821\"}}}}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "quarantined_needs_inspection",
+      "workflow_name": "DraftOrderStatusReply",
+      "execution_id": "4821",
+      "execution_url": "https://n8n.example.com/execution/4821",
+      "failed_node": "StopVisiblyWithoutTriage",
+      "source_message_id": "18c2fa91",
+      "thread_id": "18c2fa80",
+      "phase": "DraftSaved",
+      "status": "NeedsInspection",
+      "outcome": "draft_ready",
+      "recovery_attempts": 1,
+      "owner_token": "4790",
+      "draft_id": "r-55120",
+      "reason": "PreviousExecutionTimedOutNeedsInspection"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Needs Inspection (quarantined)*",
+      "• *Execution:* <https://n8n.example.com/execution/4821|#4821> · DraftOrderStatusReply · failed at `StopVisiblyWithoutTriage`",
+      "• *Email:* source=`18c2fa91` · thread=`18c2fa80`",
+      "• *Recovery inputs:* expectedOwnerToken=`4790` · draft=`r-55120`",
+      "• *Reason:* PreviousExecutionTimedOutNeedsInspection"
+    ],
+    "forbidden": [
+      "support@example.com",
+      "EarlierTransientError"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "recovery",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorQuarantineNotApplied",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4822",
+          "url": "https://n8n.example.com/execution/4822",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"quarantine\":{\"quarantined\":false,\"result\":\"AlreadyCompleted\",\"record\":null}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "reason": "AlreadyCompleted"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Pre-Claim or Unhandled Error*",
+      "• *Reason:* AlreadyCompleted"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorUncertainDraftIntent",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4823",
+          "url": "https://n8n.example.com/execution/4823",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":{\"source_message_id\":\"18c2fb01\",\"thread_id\":\"18c2fb00\",\"owner_token\":\"4800\",\"phase\":\"DraftIntentRecorded\",\"status\":\"NeedsInspection\",\"outcome\":\"draft_ready\",\"recovery_attempts\":1,\"draft_id\":null,\"last_error\":\"SaveReviewDraftTimedOutNeedsInspection\"}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "post_claim_needs_inspection",
+      "phase": "DraftIntentRecorded",
+      "status": "NeedsInspection",
+      "draft_id": null,
+      "reason": "SaveReviewDraftTimedOutNeedsInspection"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Needs Inspection (uncertain Gmail write)*",
+      "phase=`DraftIntentRecorded`"
+    ],
+    "forbidden": [
+      "draft=`"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorPostClaimLabelsPending",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4824",
+          "url": "https://n8n.example.com/execution/4824",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":{\"source_message_id\":\"18c2fb02\",\"thread_id\":\"18c2fb00\",\"owner_token\":\"4801\",\"phase\":\"LabelsPending\",\"status\":\"NeedsInspection\",\"outcome\":\"manual_review\",\"recovery_attempts\":1,\"draft_id\":null,\"last_error\":\"SourceLabelsNotVerified\"}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "post_claim_needs_inspection",
+      "phase": "LabelsPending",
+      "status": "NeedsInspection",
+      "outcome": "manual_review",
+      "recovery_attempts": 1,
+      "reason": "SourceLabelsNotVerified"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Needs Inspection*",
+      "phase=`LabelsPending`",
+      "status=`NeedsInspection`",
+      "attempts=`1`"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorUnexpectedNeedsRecovery",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4825",
+          "url": "https://n8n.example.com/execution/4825",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":{\"source_message_id\":\"18c2fb03\",\"thread_id\":\"18c2fb00\",\"owner_token\":\"4802\",\"phase\":\"Processing\",\"status\":\"NeedsRecovery\",\"outcome\":null,\"recovery_attempts\":0,\"draft_id\":null,\"last_error\":\"model_provider_failure\"}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "post_claim_needs_inspection",
+      "phase": "Processing",
+      "status": "NeedsRecovery",
+      "recovery_attempts": 0,
+      "reason": "model_provider_failure"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Needs Inspection*",
+      "status=`NeedsRecovery`",
+      "attempts=`0`"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorLedgerCheckpointNotApplied",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4826",
+          "url": "https://n8n.example.com/execution/4826",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":null}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "source_message_id": null,
+      "thread_id": null,
+      "phase": null,
+      "status": null,
+      "outcome": null,
+      "recovery_attempts": null,
+      "owner_token": null,
+      "draft_id": null,
+      "reason": "(non-string error omitted)"
+    },
+    "includes": [
+      ":rotating_light: *Order Status Drafter — Pre-Claim or Unhandled Error*",
+      "• *Reason:* (non-string error omitted)"
+    ],
+    "forbidden": [
+      "• *Email:*",
+      "• *Ledger:*",
+      "• *Recovery inputs:*"
+    ],
+    "absent": [
+      "record",
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorRecordUnfinishedWorkLeakGuard",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4827",
+          "url": "https://n8n.example.com/execution/4827",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"message_id\":\"18c2fb04\",\"thread_id\":\"18c2fb00\",\"subject\":\"Where is my secret gift order 9999?\",\"original_body\":\"Hi team, my private phone is 555-0199 and address is 42 Elm St.\",\"cleaned_question\":\"Where is my secret gift order 9999?\",\"reply_body\":\"Hello! Your secret gift order 9999 is shipping to 42 Elm St.\",\"recipient\":\"vip-customer@example.com\",\"route\":\"fatal\",\"reason\":\"model_provider_failure\",\"error\":{\"message\":\"connection timeout to postgres\"}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "source_message_id": null,
+      "thread_id": null,
+      "reason": "model_provider_failure"
+    },
+    "forbidden": [
+      "Where is my secret gift order 9999?",
+      "555-0199",
+      "42 Elm St",
+      "Hello! Your secret gift order 9999",
+      "vip-customer@example.com",
+      "18c2fb04"
+    ],
+    "absent": [
+      "subject",
+      "original_body",
+      "cleaned_question",
+      "reply_body",
+      "recipient",
+      "message_id",
+      "route",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorLedgerRecordAllowlistGuard",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4828",
+          "url": "https://n8n.example.com/execution/4828",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":{\"mailbox\":\"support-inbox@example.com\",\"source_message_id\":\"18c2fb05\",\"thread_id\":\"18c2fb00\",\"owner_token\":\"4805\",\"candidate_version\":\"v-secret-candidate-hash\",\"phase\":\"DraftSaved\",\"status\":\"NeedsInspection\",\"outcome\":\"draft_ready\",\"recovery_attempts\":1,\"draft_id\":\"r-991\",\"draft_message_id\":\"m-secret-991\",\"last_error\":\"SavedDraftMismatchNeedsInspection\",\"intent\":{\"recipient\":\"buyer-private@example.com\",\"subject\":\"Secret Customer Subject\",\"reply_body\":\"Confidential draft reply body text\"},\"recovery\":{\"history\":[{\"action\":\"recover\",\"note\":\"Operator private history note\"}]}}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "post_claim_needs_inspection",
+      "source_message_id": "18c2fb05",
+      "thread_id": "18c2fb00",
+      "owner_token": "4805",
+      "phase": "DraftSaved",
+      "status": "NeedsInspection",
+      "outcome": "draft_ready",
+      "recovery_attempts": 1,
+      "draft_id": "r-991",
+      "reason": "SavedDraftMismatchNeedsInspection"
+    },
+    "forbidden": [
+      "support-inbox@example.com",
+      "buyer-private@example.com",
+      "Secret Customer Subject",
+      "Confidential draft reply body text",
+      "Operator private history note",
+      "v-secret-candidate-hash",
+      "m-secret-991"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "recovery",
+      "candidate_version",
+      "draft_message_id",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorSanitizeQuotedPromptAndTruncate",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4829",
+          "url": "https://n8n.example.com/execution/4829",
+          "lastNodeExecuted": "StopVisiblyWithoutTriage",
+          "error": {
+            "message": "{\"record\":{\"source_message_id\":\"18c2fb06\",\"thread_id\":\"18c2fb00\",\"owner_token\":\"4806\",\"phase\":\"Processing\",\"status\":\"NeedsInspection\",\"outcome\":null,\"recovery_attempts\":1,\"draft_id\":null,\"last_error\":\"Provider rejected prompt for customer.private@example.com with payload \\\"Customer wrote: Please urgently tell me where my wedding gift order 998877 is because the courier never rang the bell at 742 Evergreen Terrace and my phone 555-0199 was on all afternoon while waiting for delivery confirmation from the warehouse team!\\\" and upstream gateway diagnostic code E_UPSTREAM_CONTEXT_OVERFLOW_RETRY_EXHAUSTED_across_multiple_regional_clusters_0123456789_abcdefghijklmnopqrstuvwxyz\"}}"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "post_claim_needs_inspection",
+      "reason": "Provider rejected prompt for [REDACTED_EMAIL] with payload [REDACTED_TEXT] and upstream gateway diagnostic code E_UPSTREAM_CONTEXT_OVERFLOW_RETRY_EXHAUSTED_acr…"
+    },
+    "includes": [
+      "[REDACTED_EMAIL]",
+      "[REDACTED_TEXT]"
+    ],
+    "forbidden": [
+      "customer.private@example.com",
+      "742 Evergreen Terrace",
+      "555-0199",
+      "wedding gift order 998877"
+    ],
+    "maxReasonLength": 160,
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorEscapeSlackInjection",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4830",
+          "url": "https://n8n.example.com/execution/4830",
+          "lastNodeExecuted": "ReadMailboxIdentity",
+          "error": {
+            "message": "Alert <!channel> visit <https://x|click> & run `rm -rf` now"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "reason": "Alert &lt;!channel&gt; visit &lt;https://x|click&gt; &amp; run rm -rf now"
+    },
+    "includes": [
+      "• *Reason:* Alert &lt;!channel&gt; visit &lt;https://x|click&gt; &amp; run rm -rf now"
+    ],
+    "forbidden": [
+      "<!channel>",
+      "<https://x|click>",
+      "`rm -rf`"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorPreserveNativeInfraReason",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4831",
+          "url": "https://n8n.example.com/execution/4831",
+          "lastNodeExecuted": "ClaimSourceAtomically",
+          "error": {
+            "message": "connect ECONNREFUSED 10.0.0.5:5432"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "reason": "connect ECONNREFUSED 10.0.0.5:5432"
+    },
+    "includes": [
+      "• *Reason:* connect ECONNREFUSED 10.0.0.5:5432"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
+  },
+  {
+    "id": "T019ErrorExecutionUrlAbsent",
+    "fn": "formatErrorAlert",
+    "args": [
+      {
+        "workflow": {
+          "id": "wf-main",
+          "name": "DraftOrderStatusReply"
+        },
+        "execution": {
+          "id": "4899",
+          "lastNodeExecuted": "ClaimSourceAtomically",
+          "error": {
+            "message": "connect ECONNREFUSED 10.0.0.5:5432"
+          }
+        }
+      },
+      {
+        "slackChannelId": "<SLACK_ERROR_CHANNEL_ID>"
+      }
+    ],
+    "expected": {
+      "classification": "pre_claim_or_unhandled",
+      "execution_id": "4899",
+      "execution_url": null,
+      "failed_node": "ClaimSourceAtomically",
+      "reason": "connect ECONNREFUSED 10.0.0.5:5432",
+      "slack_text": ":rotating_light: *Order Status Drafter — Pre-Claim or Unhandled Error*\n• *Execution:* #4899 · DraftOrderStatusReply · failed at `ClaimSourceAtomically`\n• *Reason:* connect ECONNREFUSED 10.0.0.5:5432"
+    },
+    "forbidden": [
+      "|#4899>"
+    ],
+    "absent": [
+      "mailbox",
+      "intent",
+      "next_step"
+    ]
   }
 ]

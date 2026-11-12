@@ -215,7 +215,7 @@ test('draft-intent recovery bypasses LLM and Sheets and resumes at SharedReplyCo
  const intentParams=evaluate(n('RecordDraftIntent').parameters.options.queryReplacement,{OwnedRequest:{ledger:{...record,phase:'DraftIntentRecorded'}},RecheckAllowedRecipient:source});
  assert.equal(JSON.parse(intentParams[0]).expected_phase,'DraftIntentRecorded');
 });
-test('Phase 08 Option B alert gate suppresses NeedsRecovery and alerts NeedsInspection',()=>{
+test('Phase 08 alert gate suppresses NeedsRecovery and alerts NeedsInspection',()=>{
  assert.equal(n('RecordUnfinishedWork').onError,'continueErrorOutput');
  assert.deepEqual(edges('RecordUnfinishedWork'),[['NeedsImmediateAlert'],['StopVisiblyWithoutTriage']]);
  assert.deepEqual(edges('NeedsImmediateAlert'),[['ReturnQueuedForAutoRecovery'],['StopVisiblyWithoutTriage']]);
@@ -228,7 +228,7 @@ test('owner transfer carries current expected phase/status/version, mode, and dr
 test('no new runtime Code, queue, schedule, send, or provider strategy',()=>{for(const node of w.nodes){assert(!['n8n-nodes-base.code','n8n-nodes-base.merge','n8n-nodes-base.scheduleTrigger'].includes(node.type));assert(!['send','reply','sendAndWait'].includes(node.parameters.operation));}assert.equal(w.active,false);assert.deepEqual(w.pinData||{},{});});
 test('all expression targets and wired nodes exist',()=>{const names=new Set(w.nodes.map(n=>n.name));for(const node of w.nodes)for(const [,name]of JSON.stringify(node.parameters).matchAll(/\$\('([^']+)'\)/g))assert(names.has(name),node.name+' -> '+name);for(const [name,types]of Object.entries(w.connections)){assert(names.has(name));for(const outputs of Object.values(types))for(const targets of outputs)for(const t of targets||[])assert(names.has(t.node));}});
 test('raw expressions have one complete delimiter',()=>{for(const node of w.nodes.filter(n=>n.type==='n8n-nodes-base.set'&&n.parameters.mode==='raw')){const s=node.parameters.jsonOutput;assert.deepEqual(s.match(/{{[\s\S]*?}}/g),[s.slice(1)],node.name);}});
-test('all new parameter expressions have complete delimiters',()=>{const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{'))assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};for(const node of w.nodes.filter(n=>n.id.startsWith('t018-')))visit(node.parameters,node.name);});
+test('all new parameter expressions have complete delimiters',()=>{const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{')){assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);assert(!/\b(?:prototype|__proto__|constructor)\b/.test(v),name+' accesses blocked Tournament sandbox property');}else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};for(const node of w.nodes.filter(n=>n.id.startsWith('t018-')))visit(node.parameters,node.name);});
 test('automated and manual recovery sweeper is a PascalCase 2-swimlane workflow',()=>{
  const rw=JSON.parse(fs.readFileSync('workflows/recover-order-status-request.json'));
  assert.equal(rw.name,'RecoverOrderStatusRequest');
@@ -293,7 +293,7 @@ test('automated and manual recovery sweeper is a PascalCase 2-swimlane workflow'
  assert.deepEqual(rwEdges('RecoverThroughMain')[0],['ReturnRecoveryOutcome']);
  assert.deepEqual(rwEdges('RecoverThroughMain')[1],['VerifySweepBatchOutcome']);
  const rwNames=new Set(rw.nodes.map(n=>n.name));
- const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{'))assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};
+ const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{')){assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);assert(!/\b(?:prototype|__proto__|constructor)\b/.test(v),name+' accesses blocked Tournament sandbox property');}else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};
  for(const node of rw.nodes){
   visit(node.parameters,node.name);
   for(const [,ref]of JSON.stringify(node.parameters).matchAll(/\$\('([^']+)'\)/g))assert(rwNames.has(ref),node.name+' -> '+ref);
@@ -325,5 +325,69 @@ test('setup and migration define all 5 RPCs, immutability guards, restricted wor
  assert(ver.includes('has_recovery_attempts_column'));
  assert(ver.includes('can_call_quarantine'));
  assert(ver.includes('can_call_find_recoverable'));
+});
+test('error alerting workflow is a stateless PascalCase 2-swimlane workflow',()=>{
+ const ew=JSON.parse(fs.readFileSync('workflows/notify-order-status-error.json'));
+ assert.equal(ew.name,'NotifyOrderStatusError');
+ assert.equal(ew.active,false);
+ assert.deepEqual(ew.pinData||{},{});
+ assert.equal(ew.settings.saveDataSuccessExecution,'none');
+ assert.equal(ew.settings.saveDataErrorExecution,'all');
+ assert.equal(ew.settings.saveManualExecutions,true);
+ assert(!('errorWorkflow' in ew.settings));
+ const nonSticky=ew.nodes.filter(n=>!n.type.endsWith('stickyNote'));
+ const sticky=ew.nodes.filter(n=>n.type.endsWith('stickyNote'));
+ assert.equal(nonSticky.length,7);
+ assert.equal(sticky.length,2);
+ for(const node of ew.nodes){
+  assert(/^[A-Z][A-Za-z0-9]*$/.test(node.name),node.name);
+  assert(!node.credentials,node.name);
+  assert(!node.type.includes('code')&&!node.type.includes('postgres')&&!node.type.includes('gmail')&&!node.type.includes('googleSheets')&&!node.type.includes('lmChat')&&!node.type.includes('dataTable'),node.name);
+ }
+ assert(sticky.some(s=>s.name==='ErrorTriggerLane'&&s.parameters.content.startsWith('## 01')&&s.parameters.color===4));
+ assert(sticky.some(s=>s.name==='ErrorDeliveryLane'&&s.parameters.content.startsWith('## 02')&&s.parameters.color===5));
+ const ewn=name=>{const v=ew.nodes.find(n=>n.name===name);assert(v,name);return v;};
+ const cfg=ewn('ErrorAlertConfig');
+ assert.notEqual(cfg.parameters.mode,'raw');
+ assert.deepEqual(cfg.parameters.assignments.assignments.map(a=>[a.name,a.value,a.type]),[
+  ['slackChannelId','<SLACK_ERROR_CHANNEL_ID>','string']
+ ]);
+ const parseNode=ewn('ParseErrorToSlackAlert');
+ assert.equal(parseNode.executeOnce,true);
+ assert.equal(parseNode.parameters.mode,'raw');
+ assert(parseNode.parameters.jsonOutput.includes(require('../src/error-policy').formatErrorAlert.toString()));
+ const slackNode=ewn('SendSlackErrorAlert');
+ assert.equal(slackNode.type,'n8n-nodes-base.slack');
+ assert.equal(slackNode.retryOnFail,true);
+ assert.equal(slackNode.maxTries,3);
+ assert.equal(slackNode.waitBetweenTries,5000);
+ assert.equal(slackNode.parameters.otherOptions.mrkdwn,true);
+ assert.equal(slackNode.parameters.otherOptions.link_names,false);
+ assert.equal(slackNode.parameters.otherOptions.includeLinkToWorkflow,false);
+ const receiptNode=ewn('ReturnAlertReceipt');
+ assert.equal(receiptNode.executeOnce,true);
+ assert.notEqual(receiptNode.parameters.mode,'raw');
+ assert.deepEqual(receiptNode.parameters.assignments.assignments.map(a=>[a.name,a.value,a.type]),[
+  ['classification',"={{ $('ParseErrorToSlackAlert').item.json.classification }}",'string'],
+  ['channel_id',"={{ $('ErrorAlertConfig').item.json.slackChannelId }}",'string'],
+  ['slack_ts',"={{ $('SendSlackErrorAlert').item.json.ts || $('SendSlackErrorAlert').item.json.message?.ts || '' }}",'string']
+ ]);
+ const ewEdges=name=>(ew.connections[name]?.main||[]).map(targets=>(targets||[]).map(t=>t.node));
+ assert.deepEqual(ewEdges('ReceiveWorkflowError')[0],['AlertInputEnvelope']);
+ assert.deepEqual(ewEdges('ReceiveAlertRequest')[0],['AlertInputEnvelope']);
+ assert.deepEqual(ewEdges('AlertInputEnvelope')[0],['ErrorAlertConfig']);
+ assert.deepEqual(ewEdges('ErrorAlertConfig')[0],['ParseErrorToSlackAlert']);
+ assert.deepEqual(ewEdges('ParseErrorToSlackAlert')[0],['SendSlackErrorAlert']);
+ assert.deepEqual(ewEdges('SendSlackErrorAlert')[0],['ReturnAlertReceipt']);
+ const ewNames=new Set(ew.nodes.map(n=>n.name));
+ const visit=(v,name)=>{if(typeof v==='string'&&v.startsWith('={{')){assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);assert(!/\b(?:prototype|__proto__|constructor)\b/.test(v),name+' accesses blocked Tournament sandbox property');}else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);};
+ for(const node of ew.nodes){
+  visit(node.parameters,node.name);
+  for(const [,ref]of JSON.stringify(node.parameters).matchAll(/\$\('([^']+)'\)/g))assert(ewNames.has(ref),node.name+' -> '+ref);
+ }
+ for(const [name,types]of Object.entries(ew.connections)){
+  assert(ewNames.has(name));
+  for(const outputs of Object.values(types))for(const targets of outputs)for(const t of targets||[])assert(ewNames.has(t.node));
+ }
 });
 console.log(`${total} focused local recovery/guard/source checks passed. Offline checks only; no database calls, concurrent executions or Gmail operations were performed.`);

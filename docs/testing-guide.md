@@ -22,12 +22,12 @@ Or run each suite individually:
 ```sh
 node tests/run-regression.js
 node tests/check-recovery.js
-node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json
+node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json
 ```
 
-- `tests/run-regression.js` executes **246 deterministic unit/policy cases** (78 order-validator cases + 168 intake/extraction/lookup/draft/save/error-classification cases) and **3 static audits**.
-- `tests/check-recovery.js` executes **57 focused offline recovery, guard, and snapshot checks**.
-- `tests/check-source-linkage.js` verifies that **15 inline runtime expressions** and **both model stage prompts/schemas/settings** inside `workflows/main-workflow.json` and `workflows/get-order.json` match the shared policy libraries in `src/`.
+- `tests/run-regression.js` executes **261 deterministic unit/policy cases** (78 order-validator cases + 168 intake/extraction/lookup/draft/save/error-classification cases + 15 error-alert formatting/redaction cases) and **3 static audits**.
+- `tests/check-recovery.js` executes **74 focused offline recovery, guard, and snapshot checks**.
+- `tests/check-source-linkage.js` verifies that **16 inline runtime expressions** and **both model stage prompts/schemas/settings** inside `workflows/main-workflow.json`, `workflows/get-order.json`, and `workflows/notify-order-status-error.json` match the shared policy libraries in `src/`.
 
 ### Key Source & Test Files
 
@@ -35,14 +35,15 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 | --- | --- |
 | `src/main-policy.js` & `src/validate-order.js` | Shared deterministic policy and order-validation functions |
 | `src/recovery-policy.js` | Recovery decision helpers and ownership guard logic |
+| `src/error-policy.js` | Error alert classification, strict allowlist parsing, and Slack sanitization (`formatErrorAlert()`, `sanitizeReason()`, `escapeSlack()`) |
 | `src/source-linkage.json` & `src/model-definitions.json` | Expected expression hashes and model prompt/schema/parameter baselines |
-| `tests/fixtures/policy-cases.json` & `tests/fixtures/order-fixtures.js` | Independent test fixtures for the 246 policy/validator cases |
+| `tests/fixtures/policy-cases.json` & `tests/fixtures/order-fixtures.js` | Independent test fixtures for the 261 policy/validator cases |
 | `tests/fixtures/evaluation-cases.json` & `tests/fixtures/dataset-rows.js` | Model-stage evaluation cases and CSV dataset generator |
 | `tests/fixtures/e2e-cases.json` | End-to-end scenario definitions (`S01`–`S10`) |
 
 ### Tier 1 Verification Breakdown (`npm test`)
 
-#### Layer 1: Unit & Policy Logic (`tests/run-regression.js` — 246 logic cases + 3 static audits)
+#### Layer 1: Unit & Policy Logic (`tests/run-regression.js` — 261 logic cases + 3 static audits)
 
 | Sub-Suite & Functions (`src/`) | Exact Cases | n8n Node Name(s) | Input | Output | Edge Cases Verified |
 | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -54,9 +55,10 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 | **Recipient Save Gate**<br>`saveGate()` *(5)* | **5** | `RecheckAllowedRecipient`<br>*(in `main-workflow.json`)* | • `source` context<br>• `[customerEmail, receiverEmail]` | `source` or `{ ...source, reply_body: null, route: 'review', reason: 'invalid_recipient' }` | • Rejects null recipient, un-normalized uppercase address, or recipient not in allowlist immediately before Gmail draft creation. |
 | **Draft Confirmation**<br>`confirmDraft()` *(12)* | **12** | `ConfirmSavedDraft`<br>*(in `main-workflow.json`)* | • `source` context<br>• `saved` draft response<br>• `readback` Gmail draft | `{ ...source, draft_id, draft_message_id, draft_confirmed: true }` or `{ route: 'fatal', draft_confirmed: false }` | • **Readback verification:** Fails if `saved.id`, `message.id`, or `threadId` is missing or mismatches `readback`.<br>• Fails if `subject` or trimmed `text` was altered.<br>• Fails if `readback.to.value` has ≠ 1 recipient or mismatches `source.recipient`. |
 | **Model Error Classifier**<br>`modelError()` *(4)* | **4** | • `ClassifyExtractGroqError`<br>• `ClassifyExtractOpenRouterError`<br>• `ClassifyDraftGroqError`<br>• `ClassifyDraftOpenRouterError` | • `source` context<br>• `failure` object<br>• `stage` & `provider` | `{ ...source, route: 'fallback' \| 'review' \| 'fatal', reason, failed_stage, failed_provider, provider_error }` | • JSON schema / parser errors → routes to `'review'` (`invalid_extraction`).<br>• HTTP `401/403/408/429/500/502/503/504`, timeouts, rate limits, or unavailable model on `groq` → routes to `'fallback'` (`model_provider_failure`).<br>• Operational errors on fallback provider (`openrouter`) or unknown errors → `'fatal'`. |
+| **Error Alert Policy**<br>[`formatErrorAlert()`](../src/error-policy.js), `sanitizeReason()`, `escapeSlack()` *(15)* | **15** | `ParseErrorToSlackAlert`<br>*(in `notify-order-status-error.json`)* | • Raw n8n `Error Trigger` or `ReceiveAlertRequest` payload (`$json`) | `{ classification, reason, workflow_name, execution_id, execution_url, failed_node, source_message_id, thread_id, phase, status, outcome, recovery_attempts, owner_token, draft_id, slack_text }` | • **Classifications (5-way):** `trigger_failure`, `recovery_sweep_failed` (infra & batch rollup), `quarantined_needs_inspection`, `post_claim_needs_inspection` (`DraftIntentRecorded` uncertain-write header vs other phases), and `pre_claim_or_unhandled`.<br>• **Zero-PII leak guards:** Strips customer emails, quoted prompts, and non-allowlisted ledger fields (`intent`, `cleaned_question`, `reply_body`, `customer_email`).<br>• **Slack escaping:** Neutralizes `&`, `<`, `>`, backticks (preventing `<!channel>`, `<!here>`, `<url\|label>`), and truncates reasons to ≤ 160 chars. |
 | **Static Audits**<br>`captured-source-linkage`<br>`model-dataset-scope`<br>`model-only-surface` | **3** | • `EvaluateModelCases`<br>• `RecordModelOutputs`<br>• `RecordCaseById`<br>*(in `evaluation-workflow.json`)* | • `source-linkage.json`<br>• `evaluation-cases.json`<br>• `evaluation-workflow.json` | Pass / Fail assertion | • Verifies captured linkage definitions.<br>• Asserts dataset has 8 unique cases (5 `extraction`, 3 `drafting`).<br>• Asserts `evaluation-workflow.json` is `active: false`, has no credentials, no `retryOnFail`, uses `<MODEL_TEST_DATA_TABLE_ID>`, and only uses allowed node types. |
 
-#### Layer 2: Recovery, Guards & Concurrency Safety (`tests/check-recovery.js` — 57 checks)
+#### Layer 2: Recovery, Guards & Concurrency Safety (`tests/check-recovery.js` — 74 checks)
 
 | Check Category & Function | Exact Checks | n8n Node Name(s) | Input | Output | Edge Cases Verified |
 | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -65,14 +67,15 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 | **Draft Readback & Recipient Guard**<br>`verifiedDraft()` & `confirmDraft()` | **12** | • `ConfirmSavedDraft`<br>• `VerifyInspectedDraft`<br>*(in `main-workflow.json`)* | • `WorkflowConfig`<br>• `DraftToConfirm`<br>• `ReadSavedDraft` | `{ ...result, draft_confirmed: true }` or throws Error | • Evaluates the live node expression from `ConfirmSavedDraft`.<br>• Rejects 10 tampered draft mutations: altered `id`, `messageId`, `threadId`, `subject`, `text`, wrong `to` address, multiple `to` addresses, injected `cc`, injected `bcc`, or label changed from `DRAFT` to `SENT`.<br>• Rejects recovered draft if recipient is no longer in `WorkflowConfig` allowlist. |
 | **Label Verification**<br>`verifiedLabels()` | **5** | `VerifyFinalSourceLabels`<br>*(in `main-workflow.json`)* | • Gmail `message`<br>• `source` context<br>• `required` label IDs | `{ ...source, labels_verified: true }` or throws Error | • Requires both `review` and `triaged` labels when routed to review.<br>• Supports both array of strings (`labelIds`) and simplified Gmail label objects (`labels: [{ id }]`).<br>• Throws `SourceLabelsNotVerified` on missing label, wrong message ID, or wrong thread ID. |
 | **Mailbox & Source Auth Guard** | **2** | `VerifyMailboxAndSource`<br>*(in `main-workflow.json`)* | • `WorkflowConfig`<br>• `ReadMailboxIdentity`<br>• `AuthorizedSourceRequest` | Verified context or throws Error | • Throws if authenticated Gmail account (`ReadMailboxIdentity.emailAddress`) does not match `WorkflowConfig.receiverEmail`.<br>• Throws if recovery request tries to substitute a different `sourceMessageId`. |
-| **Graph Topology, SQL Parameterization & Schema Audits** | **15** | • `OwnerAcquired` → `ReturnSkippedRequest`<br>• `RecoveryMayProceed` → `ReturnRecoveryDecision`<br>• `SaveRecipientAccepted` → `RecordDraftIntent` → `SaveReviewDraft` → `RecordSavedDraft`<br>• `RestoreRecordedDraft`<br>• `RestoreReviewContext`<br>• `OutcomeToVerify` → `ReadFinalSourceLabels` → `VerifyFinalSourceLabels` → `CompleteLedger`<br>• `TransferRecoveryOwnership`<br>• `SelectUnresolvedRequest` *(in `recover-order-status-request.json`)* | • `main-workflow.json`<br>• `recover-order-status-request.json`<br>• `order-status-ledger.sql` | Structural & security assertions pass | • **Helper sync:** All 4 functions in `recovery-policy.js` match the inline expressions in `main-workflow.json`.<br>• **Lock-loss isolation:** `OwnerAcquired[1]` terminates at `ReturnSkippedRequest` with zero downstream connections.<br>• **Recovery rejection isolation:** `RecoveryMayProceed[1]` terminates at `ReturnRecoveryDecision`.<br>• **Write ordering:** Intent recorded before draft creation; draft ID recorded before readback; `SaveReviewDraft` has `retryOnFail: false`.<br>• **No LLM re-execution:** Graph BFS from `RestoreRecordedDraft` and `RestoreReviewContext` proves LLM and `SaveReviewDraft` nodes are unreachable.<br>• **SQL parameterization:** All Postgres nodes use `$1::jsonb` and `queryReplacement` (zero string interpolation).<br>• **Node restrictions:** Zero `code`, `merge`, `scheduleTrigger`, or Gmail `send`/`reply` nodes.<br>• **Manual recovery workflow:** Exactly 4 non-sticky nodes and zero Gmail/LLM/Postgres nodes.<br>• **SQL ledger:** 1 table, composite PK `(mailbox, source_message_id)`, RLS enabled, `security invoker`, no `DROP`/`TRUNCATE`/`DELETE`. |
+| **Graph Topology, SQL Parameterization & Schema Audits** | **32** | • `OwnerAcquired` → `ReturnSkippedRequest`<br>• `RecoveryMayProceed` → `ReturnRecoveryDecision`<br>• `SaveRecipientAccepted` → `RecordDraftIntent` → `SaveReviewDraft` → `RecordSavedDraft`<br>• `RestoreRecordedDraft`<br>• `RestoreReviewContext`<br>• `OutcomeToVerify` → `ReadFinalSourceLabels` → `VerifyFinalSourceLabels` → `CompleteLedger`<br>• `TransferRecoveryOwnership`<br>• `SelectUnresolvedRequest` *(in `recover-order-status-request.json`)*<br>• `ReceiveWorkflowError` / `ReceiveAlertRequest` → `AlertInputEnvelope` → `ErrorAlertConfig` → `ParseErrorToSlackAlert` → `SendSlackErrorAlert` → `ReturnAlertReceipt` *(in `notify-order-status-error.json`)* | • `main-workflow.json`<br>• `recover-order-status-request.json`<br>• `notify-order-status-error.json`<br>• `order-status-ledger.sql` | Structural & security assertions pass | • **Helper sync:** All functions in `recovery-policy.js` and `error-policy.js` match the inline expressions in `main-workflow.json` and `notify-order-status-error.json`.<br>• **Lock-loss & alerting boundary isolation:** `OwnerAcquired[1]` terminates at `ReturnSkippedRequest`; first-time `NeedsRecovery` (`recovery_attempts = 0`) terminates quietly at `ReturnQueuedForAutoRecovery`.<br>• **Write ordering:** Intent recorded before draft creation; draft ID recorded before readback; `SaveReviewDraft` has `retryOnFail: false`.<br>• **No LLM re-execution:** Graph BFS from `RestoreRecordedDraft` and `RestoreReviewContext` proves LLM and `SaveReviewDraft` nodes are unreachable.<br>• **SQL parameterization:** All Postgres nodes use `$1::jsonb` and `queryReplacement` (zero string interpolation).<br>• **Error workflow audit (`NotifyOrderStatusError`):** Verifies 7 functional nodes + 2 swimlane sticky notes, no `errorWorkflow` self-reference, `<SLACK_ERROR_CHANNEL_ID>` placeholder, `SendSlackErrorAlert` retry configuration (`maxTries: 3`, `waitBetweenTries: 5000`), and manual `assignments` field mapping.<br>• **SQL ledger:** 1 table, composite PK `(mailbox, source_message_id)`, RLS enabled, `security invoker`, no `DROP`/`TRUNCATE`/`DELETE`. |
 
-#### Layer 3: Source Linkage & Anti-Drift Audit (`tests/check-source-linkage.js` — 15 expressions + model definitions)
+#### Layer 3: Source Linkage & Anti-Drift Audit (`tests/check-source-linkage.js` — 16 expressions + model definitions)
 
 | Audited Target | Count | n8n Node Name(s) | Input | Output | Edge Cases Verified |
 | :--- | :---: | :--- | :--- | :--- | :--- |
 | **Main Workflow Inline Expressions** | **14** | 1. `PrepareSourceContext`<br>2. `CleanCustomerQuestion`<br>3. `ValidateRequestInput`<br>4. `ValidateExtractionShape`<br>5. `ResolveExtractedRequest`<br>6. `ValidateLookupResult`<br>7. `ResolveOrderRequest`<br>8. `CheckGeneratedReply`<br>9. `RecheckAllowedRecipient`<br>10. `ConfirmSavedDraft`<br>11. `ClassifyExtractGroqError`<br>12. `ClassifyExtractOpenRouterError`<br>13. `ClassifyDraftGroqError`<br>14. `ClassifyDraftOpenRouterError`<br>*(in `main-workflow.json`)* | • `node.parameters.jsonOutput`<br>• [`src/main-policy.js`](../src/main-policy.js)<br>• [`src/source-linkage.json`](../src/source-linkage.json) | String inclusion match passes | • Verifies every tracked node exists in `main-workflow.json`.<br>• Asserts `node.parameters.jsonOutput.includes(fn.toString())` for both current workflow snapshots and captured baselines.<br>• Fails if any line, comment, or variable in `src/main-policy.js` differs from the n8n JSON node. |
 | **Order Subworkflow Expression** | **1** | 15. `ReturnGetOrderContract`<br>*(in `get-order.json`)* | • `node.parameters.jsonOutput`<br>• [`src/validate-order.js`](../src/validate-order.js) | String inclusion match passes | • Asserts `ReturnGetOrderContract` in `get-order.json` contains the exact `validateOrder.toString()` implementation from `src/validate-order.js`. |
+| **Error Workflow Expression** | **1** | 16. `ParseErrorToSlackAlert`<br>*(in `notify-order-status-error.json`)* | • `node.parameters.jsonOutput`<br>• [`src/error-policy.js`](../src/error-policy.js) | String inclusion match passes | • Asserts `ParseErrorToSlackAlert` in `notify-order-status-error.json` embeds the exact `sanitizeReason.toString()`, `escapeSlack.toString()`, and `formatErrorAlert.toString()` helpers from `src/error-policy.js`. |
 | **Model Prompts, Schemas & Parameters** | **4** | • `ExtractRequestGroq`<br>• `WriteVerifiedReplyGroq`<br>• `GroqExtractionModel`<br>• `GroqDraftingModel`<br>*(in `main-workflow.json`)* | • [`src/model-definitions.json`](../src/model-definitions.json)<br>• `src/main-policy.js`<br>• `main-workflow.json` | Deep equality & SHA-256 match | • Verifies `ExtractRequestGroq` prompt and JSON schema match `policy.extractionPrompt` and `policy.schema`.<br>• Verifies `WriteVerifiedReplyGroq` system prompt template.<br>• Verifies `GroqExtractionModel` and `GroqDraftingModel` settings.<br>• Computes SHA-256 hash of `model-definitions.json` and asserts it matches `modelDefinitionsSha256` (`e9fc3cf3...`). |
 
 ---
@@ -220,3 +223,87 @@ All 20 assignments in the **`RunConfiguration`** node (`workflows/harness/run-or
 | **`mode`** | `"regression"` | Set to `"regression"` for all 10 scenarios (`S01`–`S10`) or `"demo"` for the 4 representative cases (`S01`, `S04`, `S06`, `S08`). | Validated in `CheckReadiness` (`['regression', 'demo'].includes(config.mode)`) and used by `CreateSession` to select the case list. |
 | **`ledgerCandidate`** | `"T018-805a5da3088cb2ccd31d"` | **Keep default.** Unlike `mainVersion` (n8n's dynamic `versionId`), this is a static release fingerprint hardcoded in 4 nodes of `main-workflow.json` (`VerifyMailboxAndSource`, `ClaimSourceAtomically`, `CheckRecoveryRequest`, `TransferRecoveryOwnership`). Only change it if you intentionally roll a new `T018-...` string across those 4 nodes. | `CheckReadiness` asserts it starts with `"T018-"` and is a substring of `ClaimSourceAtomically`'s `queryReplacement`; `AssertActualCase` verifies `record.candidate_version`. |
 | **`fixtureRevision`** | `"T016-2026-10-19-a"` | **Keep default.** Baseline revision identifier for the E2E fixture definitions. | Recorded in the suite summary output (`BuildSuiteSummary`). |
+
+---
+
+## 4. Staging Error-Workflow Verification (`D1` & `D2`)
+
+These two checks verify **live n8n error-workflow wiring and sub-workflow propagation** that offline tests cannot exercise. Alert classification, allowlisting and redaction are already covered by `npm test` (the `formatErrorAlert` cases in `tests/run-regression.js`), so nothing here re-tests message content beyond a quick sanity look.
+
+> [!IMPORTANT]
+> n8n's `Error Trigger` fires only for **automatic** executions (poll, schedule, sub-workflow). Clicking **Execute workflow** never triggers it. Run both checks with the workflows **active** and let the real triggers fire.
+
+| Check | Question it answers | Possible outcomes |
+| :--- | :--- | :--- |
+| **D1** | Does an automatic `DraftOrderStatusReply` failure reach `#order-status-drafter-alerts`? | 1 alert (`pre_claim_or_unhandled`) |
+| **D2** | When a sweeper item fails, does n8n alert for the child run as well as the parent? | 1 alert (parent only) · 2 alerts (child + parent) |
+
+### 4.1 Setup (once)
+
+- [ ] Create `#order-status-drafter-alerts`, copy its channel ID, and invite your Slack app.
+- [ ] Import [`notify-order-status-error.json`](../workflows/notify-order-status-error.json). Set `ErrorAlertConfig.slackChannelId`, bind `slackApi` on `SendSlackErrorAlert`, and **publish** it.
+- [ ] In **both** `DraftOrderStatusReply` and `RecoverOrderStatusRequest`, open **⋯ → Settings → Error Workflow**, select `NotifyOrderStatusError`, and save.
+- [ ] Use a **staging** mailbox and ledger. Both checks create failing runs on purpose.
+
+---
+
+### 4.2 `D1` — Main workflow alert smoke check (`VerifyMailboxAndSource`)
+
+**Procedure**
+
+1. Keep `ReceivePendingDemo` on its **working** credential with **Always Output Data OFF**.
+2. In `WorkflowConfig`, set `receiverEmail` to `wrong@example.com` and save (workflow stays active).
+3. Apply the label `order-status-reply-drafter/demo-input` to a test email that does **not** have `order-status-reply-drafter/triaged`.
+4. Within about 60 seconds the run fails at `VerifyMailboxAndSource` and one alert should arrive.
+5. Restore `receiverEmail` and save.
+
+Expected alert (observed on staging): classification `pre_claim_or_unhandled`, execution link, and `failed at VerifyMailboxAndSource`, with no `Email`, `Ledger`, or `Recovery inputs` lines.
+
+> [!NOTE]
+> The reason line showed n8n's generic `Cannot convert undefined or null to object` rather than the workflow's own `AuthenticatedMailboxOrSourceMismatch`. The alert is still correctly classified and delivered.
+>
+> **Why we don't test by breaking the `ReceivePendingDemo` credential:** when the Gmail OAuth token on `ReceivePendingDemo` is invalid or revoked, the 1-minute poll fails *before* n8n starts an execution, so n8n never invokes `NotifyOrderStatusError` (**0 executions, 0 alerts** observed on staging). Slack alerts only cover failures inside a started execution; monitor trigger credential health separately via n8n server logs or credential status.
+
+---
+
+### 4.3 `D2` — Sweeper item failure (child vs. parent alert)
+
+**Idea:** seed one ledger row the sweeper will pick up but that is guaranteed to be quarantined. The sweeper sends it to `DraftOrderStatusReply`, which fails visibly (`StopVisiblyWithoutTriage`). The parent `RecoverOrderStatusRequest` then fails at `VerifySweepBatchOutcome`. You count the alerts.
+
+The seed uses a **hex-looking source message ID that does not exist in Gmail**. Reading the source fails, the recovery policy returns `SourceReadFailedNeedsInspection`, and the row is quarantined. (Verified on staging: `ReadRecoverySource` fails with `Bad request - please check your parameters (item 0)` on the non-existent Gmail message ID, and `QuarantineRecoveryRequest` transitions the row to `NeedsInspection`.)
+
+**Procedure**
+
+1. **Seed the row** in the Supabase SQL editor. Replace `<RECEIVER_EMAIL>` with the exact `receiverEmail` used by `WorkflowConfig` and `SelectUnresolvedRequest`:
+   ```sql
+   INSERT INTO public.order_status_ledger
+     (mailbox, source_message_id, thread_id, phase, status, owner_token,
+      execution_id, candidate_version, recovery_attempts, last_error, updated_at)
+   VALUES
+     (lower('<RECEIVER_EMAIL>'), 'd2f00d0000000001', 'd2f00d0000000001',
+      'Processing', 'NeedsRecovery', 'd2-owner', '1', 'T018-d2-test',
+      0, 'D2SyntheticTransientFailure', now() - interval '10 minutes');
+   ```
+2. **Activate** `RecoverOrderStatusRequest` and wait up to 5 minutes for `ScheduleRecoverySweep` to fire. Do not use `StartRecovery`; manual runs never alert.
+3. **Check the ledger** (the row should be quarantined and ignored by later sweeps):
+   ```sql
+   SELECT status, last_error
+   FROM public.order_status_ledger
+   WHERE source_message_id = 'd2f00d0000000001';
+   ```
+   Expected: `status = 'NeedsInspection'`.
+4. **Count alerts** in `#order-status-drafter-alerts` for this sweep:
+
+   | Alert | Classification | Comes from |
+   | :--- | :--- | :--- |
+   | Parent sweep | `recovery_sweep_failed` (`failed at VerifySweepBatchOutcome`, `source=d2f00d0000000001`) | `RecoverOrderStatusRequest` |
+   | Child | `quarantined_needs_inspection` (`failed at StopVisiblyWithoutTriage`) | `DraftOrderStatusReply` |
+
+   - Only the parent alert → **1 alert**: n8n does not fire the error workflow for a sub-workflow handled with `continueErrorOutput`. No change needed.
+   - Both alerts → **2 alerts** (observed on staging): n8n fires `NotifyOrderStatusError` for both the child `DraftOrderStatusReply` run and the parent `RecoverOrderStatusRequest` sweep.
+5. **Clean up:** deactivate `RecoverOrderStatusRequest` if it was inactive before, then remove the seed row (as `postgres`):
+   ```sql
+   DELETE FROM public.order_status_ledger
+   WHERE source_message_id = 'd2f00d0000000001';
+   ```
+

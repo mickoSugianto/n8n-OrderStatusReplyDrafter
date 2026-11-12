@@ -16,8 +16,11 @@ Use this checklist alongside:
 | Workflow | Export Path | Nodes to Configure | Placeholders / Fields |
 | --- | --- | --- | --- |
 | **GetOrder** | `workflows/get-order.json` | `ReadAllOrders` (dropdowns) | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
+| **NotifyOrderStatusError** | `workflows/notify-order-status-error.json` | `ErrorAlertConfig` (`slackChannelId` field) | `<SLACK_ERROR_CHANNEL_ID>` (for channel `#order-status-drafter-alerts`) |
 | **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `WorkflowConfig` (5 form fields), `GetOrderDeterministically` (dropdown) | `customerEmail`, `receiverEmail`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>`, `<GET_ORDER_WORKFLOW_ID>` |
 | **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `SelectUnresolvedRequest` (`receiverEmail` field), `RecoverThroughMain` (dropdown) | `receiverEmail` (`controlled-receiver@example.com`), `<MAIN_WORKFLOW_ID>` |
+
+*Note: In addition to JSON placeholders, open **Workflow Settings → Error Workflow** in the n8n UI on both **`DraftOrderStatusReply`** and **`RecoverOrderStatusRequest`** and select **`NotifyOrderStatusError`** (`<ERROR_WORKFLOW_ID>`).*
 
 ### Optional Testing & Evaluation Workflows
 
@@ -57,6 +60,7 @@ Every credentialed node must be explicitly bound and verified in n8n (do not rel
 - **Groq API (`groqApi`):** Both `GroqExtractionModel` and `GroqDraftingModel` subnodes (and in `EvaluateOrderStatusModels` if running model evals).
 - **OpenRouter API (`openRouterApi`):** Both `OpenRouterExtractionModel` and `OpenRouterDraftingModel` subnodes.
 - **n8n API (`n8nApi`):** `ReadPreviousExecution` in `DraftOrderStatusReply` (and all n8n API nodes in the optional runner/observer).
+- **Slack API (`slackApi`):** `SendSlackErrorAlert` in `NotifyOrderStatusError` (invite the Slack app to `#order-status-drafter-alerts`).
 
 ---
 

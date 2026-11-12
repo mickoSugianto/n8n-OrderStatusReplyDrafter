@@ -27,7 +27,7 @@ When `RecoverOrderStatusRequest` is published/active, **`ScheduleRecoverySweep`*
    - **Active $\ge 10$ minutes (Zombie timeout):** Quarantines the row (`PreviousExecutionTimedOutNeedsInspection`) to `status = 'NeedsInspection'` via `QuarantineRecoveryRequest` and fails visibly once.
    - **Terminal `< 60` seconds ago:** Defers cleanly (`WriteSettlePending`) until `settleWindowMs` (default `60000` ms, minimum floor `30000` ms) has elapsed after `stoppedAt`.
    - **Terminal $\ge 60$ seconds ago:** Confirms writes have settled, enforces `max_attempts = 1` (`recovery_attempts < 1`), and proceeds with recovery (or quarantines with `MaxAutoRecoveryAttemptsExhaustedAfterCrash` if a prior auto-retry crashed while `Running`).
-3. **Option B Alerting Boundary:**
+3. **Alerting Boundary:**
    - First-time transient failures (`status = 'NeedsRecovery'`, `recovery_attempts = 0`) exit **quietly** via `NeedsImmediateAlert` $\rightarrow$ `ReturnQueuedForAutoRecovery` so they do not trigger false-alarm alerts before the 5-minute sweeper runs.
    - Second failures (`recovery_attempts >= 1`), integrity mismatches, pre-transfer quarantines (`QuarantineRecoveryRequest`), and pre-claim outages route to `StopVisiblyWithoutTriage` (**visible failure**), and `VerifySweepBatchOutcome` surfaces any failed batch item.
 
@@ -85,7 +85,34 @@ In your Supabase SQL Editor or Table View, locate the row in `public.order_statu
 
 ---
 
-## 4. Recovery Behavior by Ledger Phase
+## 4. Slack Error Alerts (`NotifyOrderStatusError`) & Classification Triage
+
+When **`NotifyOrderStatusError`** ([`workflows/notify-order-status-error.json`](../workflows/notify-order-status-error.json)) is bound under **Workflow Settings → Error Workflow** on `DraftOrderStatusReply` and `RecoverOrderStatusRequest`, its `ParseErrorToSlackAlert` node classifies visible workflow errors and posts a sanitized Slack alert to `#order-status-drafter-alerts` (with zero customer email bodies, draft contents, or prompt text).
+
+### Alerting Boundary
+- **Quiet first transient failure (`NeedsRecovery`, `recovery_attempts = 0`):** Exits cleanly via `NeedsImmediateAlert` $\rightarrow$ `ReturnQueuedForAutoRecovery` so the 5-minute sweeper can self-heal without firing false-alarm Slack alerts.
+- **Visible failures (`StopVisiblyWithoutTriage`, `VerifySweepBatchOutcome`, or trigger failures):** Fire `NotifyOrderStatusError` only when automatic self-healing is exhausted, unsafe, or unavailable and human action is required.
+
+### Alert Classification to Operator Runbook Mapping
+
+At a high level, every Slack alert falls into one of two parent categories:
+1. **Infrastructure / Integration Failure** (`trigger_failure`, `pre_claim_or_unhandled`, `recovery_sweep_failed`) — failed outside a ledger row or during the recovery sweep.
+2. **Ledger Status = `NeedsInspection`** (`quarantined_needs_inspection`, `post_claim_needs_inspection`) — a specific ledger row is parked in `status = 'NeedsInspection'` and requires manual recovery (Section 3).
+
+| Parent Category | Alert `classification` | Meaning / Trigger Condition | Operator Next Action |
+| --- | --- | --- | --- |
+| **Infrastructure / Integration Failure** | **`trigger_failure`** | Pre-execution polling trigger error (`trigger` present without `execution`, e.g., revoked Gmail OAuth token or Schedule Trigger outage). | Inspect the Gmail/Trigger credential in n8n, re-authenticate if expired, and check receiver mailbox connectivity. |
+| **Infrastructure / Integration Failure** | **`pre_claim_or_unhandled`** | Failure occurred before a ledger `record` was established or without an attached ledger record (e.g., `ReadMailboxIdentity` auth failure, `ClaimSourceAtomically` DB outage, or unapplied checkpoint/quarantine). | Verify Gmail OAuth2 (`ReadMailboxIdentity`) and Postgres (`ClaimSourceAtomically`) credentials and inspect `public.order_status_ledger` if needed; untriaged messages in Gmail will be picked up once credentials/DB recover. |
+| **Infrastructure / Integration Failure** | **`recovery_sweep_failed`** | Failure in `RecoverOrderStatusRequest` (either a sweeper infrastructure failure such as `FindRecoverableRequests` DB outage, or a batch candidate rollup failure at `VerifySweepBatchOutcome` carrying `source_message_id` and `owner_token`). | If `source` / `expectedOwnerToken` are present in the alert, inspect the linked execution or corresponding `DraftOrderStatusReply` alert and follow Section 3 (Manual Recovery); otherwise verify Supabase/Postgres connectivity so the next 5-minute sweep can resume. |
+| **Ledger `status = 'NeedsInspection'`** | **`quarantined_needs_inspection`** | Phase `00` `QuarantineRecoveryRequest` transitioned a row to `status = 'NeedsInspection'` (`quarantined: true`, e.g., `PreviousExecutionTimedOutNeedsInspection`, `CandidateVersionMismatch`, or `SavedDraftMismatchNeedsInspection`). | Follow Section 3 (Steps 1–3): inspect the ledger row, prior execution, and Gmail thread, then run a manual override (`mode = 'manual'`). |
+| **Ledger `status = 'NeedsInspection'`** | **`post_claim_needs_inspection`** | Post-claim failure with ledger `record` context present (shows header **`Needs Inspection (uncertain Gmail write)`** when `phase = 'DraftIntentRecorded'`, or **`Needs Inspection`** for `Processing`, `DraftSaved`, and `LabelsPending`). | If `phase = 'DraftIntentRecorded'`, **check Gmail thread drafts first** (Section 3, Step 2), remove any duplicate/corrupted drafts, and run manual recovery (`StartRecovery`) with `inspectedDraftId` (or leave blank for automatic single-draft reconciliation). For other phases, inspect `last_error` / n8n execution log, verify external services, and run manual recovery (Section 3). |
+
+### Fallback When Slack Is Unreachable
+`SendSlackErrorAlert` retries up to 3 times (`maxTries: 3`, `waitBetweenTries: 3000` ms). If Slack remains unreachable, `NotifyOrderStatusError` fails without looping (`errorWorkflow` is never set on `NotifyOrderStatusError` itself) and stores its execution record (`saveDataErrorExecution: "all"`). If you suspect Slack delivery is down, open **n8n → Executions**, filter by workflow **`NotifyOrderStatusError`** and status **`Error`**, and inspect the raw error trigger payload directly.
+
+---
+
+## 5. Recovery Behavior by Ledger Phase
 
 | Recorded `phase` | Automated (`mode = 'auto'`) & Manual (`mode = 'manual'`) Action Taken |
 | --- | --- |
@@ -100,7 +127,7 @@ In your Supabase SQL Editor or Table View, locate the row in `public.order_statu
 
 ---
 
-## 5. Audit Trail & Privacy
+## 6. Audit Trail & Privacy
 
 - Every recovery transfer and quarantine action updates the ledger row in place, incrementing `recovery_attempts` (on transfer) and appending a structured entry to `recovery.history` while updating top-level summary fields (`previous_owner`, `previous_execution`, `previous_candidate`, `previous_phase`, `mode`, `attempt`, `note`, `inspected_draft_id`, `draft_absent_verified`, `last_quarantine`, and `result`).
 - Keep `intent` bodies, message/draft IDs, and `recovery` notes private. Follow [Ledger Database Setup](ledger-database-setup.md) when backing up or migrating the database.
