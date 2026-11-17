@@ -3242,6 +3242,38 @@
     }
   },
   {
+    "id": "extract-multiple-manual-review",
+    "fn": "extraction",
+    "args": [
+      {
+        "message_id": "source",
+        "thread_id": "thread",
+        "subject": "Order",
+        "recipient": "controlled-sender@example.com",
+        "route": "extract",
+        "reason": ""
+      },
+      {
+        "output": {
+          "request_type": "manual_review",
+          "order_numbers": [
+            "1001",
+            "1002"
+          ],
+          "reason": "Multiple intents or ambiguous request due to multiple order numbers"
+        }
+      },
+      "groq"
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "multiple_orders",
+      "message_id": "source",
+      "thread_id": "thread",
+      "subject": "Order"
+    }
+  },
+  {
     "id": "extract-manual-reason",
     "fn": "extraction",
     "args": [
@@ -4750,6 +4782,66 @@
     "absent": [
       "order"
     ]
+  },
+  {
+    "id": "T015MultipleManualReview",
+    "fn": "resolveExtractedRequest",
+    "args": [
+      {
+        "source": {
+          "message_id": "source",
+          "thread_id": "thread",
+          "subject": "OSRD SMOKE bzbwcdca multiple",
+          "recipient": "buyer@example.com",
+          "cleaned_question": "Where are orders 1001 and 1002?",
+          "extraction_provider": "groq"
+        },
+        "shape_valid": true,
+        "extraction": {
+          "request_type": "manual_review",
+          "order_numbers": [
+            "1001",
+            "1002"
+          ],
+          "reason": "Multiple intents or ambiguous request"
+        }
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "multiple_orders",
+      "extraction_provider": "groq"
+    }
+  },
+  {
+    "id": "T015DuplicateSingleManualReview",
+    "fn": "resolveExtractedRequest",
+    "args": [
+      {
+        "source": {
+          "message_id": "source",
+          "thread_id": "thread",
+          "subject": "Refund",
+          "recipient": "buyer@example.com",
+          "cleaned_question": "Please refund order 1001 twice.",
+          "extraction_provider": "openrouter"
+        },
+        "shape_valid": true,
+        "extraction": {
+          "request_type": "manual_review",
+          "order_numbers": [
+            "1001",
+            "1001"
+          ],
+          "reason": "refund_request"
+        }
+      }
+    ],
+    "expected": {
+      "route": "review",
+      "reason": "refund_request",
+      "extraction_provider": "openrouter"
+    }
   },
   {
     "id": "T015LookupNull",

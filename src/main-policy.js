@@ -50,8 +50,8 @@ function resolveExtractedRequest(checked) {
   if (!checked.shape_valid) return {...context, route: 'review', reason: 'invalid_extraction'};
   const value = checked.extraction;
   const order_numbers = [...new Set(value.order_numbers)];
-  if (value.request_type !== 'order_update') return {...context, route: 'review', reason: value.reason || 'unsupported_request'};
   if (order_numbers.length > 1) return {...context, route: 'review', reason: 'multiple_orders'};
+  if (value.request_type !== 'order_update') return {...context, route: 'review', reason: value.reason || 'unsupported_request'};
   return {...context, order_numbers, order_number: order_numbers[0] || null,
     route: order_numbers.length ? 'lookup' : 'missing', reason: value.reason};
 }

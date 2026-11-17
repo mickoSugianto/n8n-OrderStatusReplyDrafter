@@ -29,8 +29,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        272,
-        784
+        320,
+        0
       ],
       "parameters": {
         "mode": "raw",
@@ -44,8 +44,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        496,
-        784
+        640,
+        0
       ],
       "parameters": {}
     },
@@ -55,8 +55,8 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        720,
-        704
+        960,
+        0
       ],
       "parameters": {
         "resource": "message",
@@ -81,8 +81,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        944,
-        640
+        1280,
+        0
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
@@ -96,8 +96,8 @@
       "type": "n8n-nodes-base.n8n",
       "typeVersion": 1,
       "position": [
-        1168,
-        640
+        1600,
+        0
       ],
       "parameters": {
         "resource": "execution",
@@ -130,8 +130,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1392,
-        560
+        1920,
+        0
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
@@ -145,8 +145,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1616,
-        560
+        2240,
+        0
       ],
       "parameters": {
         "conditions": {
@@ -177,8 +177,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1840,
-        464
+        2560,
+        0
       ],
       "parameters": {
         "conditions": {
@@ -209,8 +209,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2064,
-        752
+        1920,
+        224
       ],
       "parameters": {
         "mode": "raw",
@@ -224,8 +224,8 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        1840,
-        752
+        2240,
+        224
       ],
       "parameters": {
         "resume": "timeInterval",
@@ -239,8 +239,8 @@
       "type": "n8n-nodes-base.n8n",
       "typeVersion": 1,
       "position": [
-        2064,
-        368
+        0,
+        576
       ],
       "parameters": {
         "resource": "execution",
@@ -265,8 +265,8 @@
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.2,
       "position": [
-        2288,
-        304
+        320,
+        576
       ],
       "parameters": {
         "resource": "thread",
@@ -288,8 +288,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2512,
-        224
+        640,
+        576
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
@@ -303,8 +303,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2736,
-        224
+        960,
+        576
       ],
       "parameters": {
         "conditions": {
@@ -335,8 +335,8 @@
       "type": "n8n-nodes-base.n8n",
       "typeVersion": 1,
       "position": [
-        2960,
-        128
+        1280,
+        576
       ],
       "parameters": {
         "resource": "execution",
@@ -361,8 +361,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2960,
-        320
+        1280,
+        800
       ],
       "parameters": {
         "mode": "raw",
@@ -376,8 +376,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3184,
-        224
+        1600,
+        576
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
@@ -391,8 +391,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        2064,
-        560
+        2560,
+        224
       ],
       "parameters": {
         "mode": "raw",
@@ -406,13 +406,45 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        3184,
-        736
+        1600,
+        800
       ],
       "parameters": {
         "mode": "raw",
         "jsonOutput": "={{ ({result:{caseId:$('ReceiveCase').first().json.state.fixture.id,status:'INFRASTRUCTURE_FAILED',stop:true,error:'Observation read failed; inspect execution before any fresh retest'} }) }}",
         "options": {}
+      }
+    },
+    {
+      "id": "t018-observer-Stage1Lane",
+      "name": "Stage1Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -144
+      ],
+      "parameters": {
+        "content": "## Stage 1 — Await settled main execution\nPoll Gmail and n8n executions every 20s (up to 10m) until the exact fixture email matches one settled main execution.",
+        "width": 2816,
+        "height": 544,
+        "color": 4
+      }
+    },
+    {
+      "id": "t018-observer-Stage2Lane",
+      "name": "Stage2Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        432
+      ],
+      "parameters": {
+        "content": "## Stage 2 — Capture & assert evidence\nRead the settled main execution, Gmail thread, and optional GetOrder child execution, then run independent case assertions.",
+        "width": 2816,
+        "height": 544,
+        "color": 5
       }
     }
   ],
@@ -656,32 +688,5 @@
     "saveDataErrorExecution": "all"
   },
   "pinData": {},
-  "nodeGroups": [
-    {
-      "id": "t016-group-0",
-      "name": "ObserveRealIntake",
-      "description": "Bounded reads find this exact source and its settled main execution; no sends or business decisions.",
-      "nodeIds": [
-        "t016-node-1",
-        "t016-node-2",
-        "t016-node-3",
-        "t016-node-4",
-        "t016-node-5",
-        "t016-node-6",
-        "t016-node-7",
-        "t016-node-8",
-        "t016-node-9",
-        "t016-node-10",
-        "t016-node-11",
-        "t016-node-12",
-        "t016-node-13",
-        "t016-node-14",
-        "t016-node-15",
-        "t016-node-16",
-        "t016-node-17",
-        "t016-node-18",
-        "t016-node-19"
-      ]
-    }
-  ]
+  "nodeGroups": []
 }

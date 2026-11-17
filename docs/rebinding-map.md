@@ -15,7 +15,7 @@ Use this checklist alongside:
 
 | Workflow | Export Path | Nodes to Configure | Placeholders / Fields |
 | --- | --- | --- | --- |
-| **GetOrder** | `workflows/get-order.json` | `ReadAllOrders` (dropdowns) | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` |
+| **GetOrder** | `workflows/get-order.json` | `GetOrderConfig` (2 form fields) | `<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>` *(numeric `#gid=...` tab GID, not `"Orders"`)* |
 | **NotifyOrderStatusError** | `workflows/notify-order-status-error.json` | `ErrorAlertConfig` (`slackChannelId` field) | `<SLACK_ERROR_CHANNEL_ID>` (for channel `#order-status-drafter-alerts`) |
 | **DraftOrderStatusReply** (Main) | `workflows/main-workflow.json` | `WorkflowConfig` (5 form fields), `GetOrderDeterministically` (dropdown) | `customerEmail`, `receiverEmail`, `<INPUT_LABEL_ID>`, `<TRIAGED_LABEL_ID>`, `<REVIEW_LABEL_ID>`, `<GET_ORDER_WORKFLOW_ID>` |
 | **RecoverOrderStatusRequest** | `workflows/recover-order-status-request.json` | `SelectUnresolvedRequest` (`receiverEmail` field), `RecoverThroughMain` (dropdown) | `receiverEmail` (`controlled-receiver@example.com`), `<MAIN_WORKFLOW_ID>` |
@@ -26,10 +26,10 @@ Use this checklist alongside:
 
 | Workflow | Export Path | Nodes to Configure | Placeholders to Replace |
 | --- | --- | --- | --- |
-| **EvaluateOrderStatusModels** | `workflows/harness/evaluation-workflow.json` | `EvaluateModelCases`, `RecordModelOutputs`, `RecordCaseById` (dropdowns) | `<MODEL_TEST_DATA_TABLE_ID>` |
-| **Sender** | `workflows/harness/sender-callable.json` | `SenderConfig` (2 form fields) | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>` |
+| **EvaluateOrderStatusModels** | `workflows/harness/evaluation-workflow.json` | `EvaluateModelCases`, `RecordModelOutputs`, `RecordCaseById` (dropdowns) | `<MODEL_TEST_DATA_TABLE_ID>` *(create/populate the evaluation table with `pass` as Boolean first—or pre-replace `<MODEL_TEST_DATA_TABLE_ID>` before import—and verify `RecordCaseById`'s `caseId` filter and 5 `columns.value` expressions remain intact after rebinding)* |
+| **Sender** | `workflows/harness/sender-callable.json` | `SenderConfig` (1 form field), plus Gmail OAuth2 bindings on `SendAsCustomer` and `SendToSelf` | `<RECEIVER_EMAIL>` (`SenderConfig`), customer Gmail OAuth2 (`SendAsCustomer`), receiver Gmail OAuth2 (`SendToSelf`) |
 | **ObserveOrderStatusRegressionCase** | `workflows/harness/observe-order-status-case.json` | *(0 placeholder nodes)* | Bind destination Gmail and n8n API credentials on all nodes |
-| **RunOrderStatusRegressionTest** | `workflows/harness/run-order-status-regression.json` | `RunConfiguration` ([field reference](testing-guide.md#runconfiguration-field-by-field-reference)) | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<OBSERVER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>`, `<SESSION_DATA_TABLE_ID>`, `<VALIDATED_MAIN_VERSION>`, `<VALIDATED_GET_ORDER_VERSION>`, `<VERIFIED_SENDER_VERSION>` |
+| **RunOrderStatusRegressionTest** | `workflows/harness/run-order-status-regression.json` | `RunConfiguration` ([field reference](testing-guide.md#runconfiguration-field-by-field-reference)), `SendSelectedFixture` (`From list`), `ObserveActualCase` (`From list`) | `<CUSTOMER_EMAIL>`, `<RECEIVER_EMAIL>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>` (`RunConfiguration.senderId` for `ReadStartingSender` and `SendSelectedFixture` via `From list`), `<OBSERVER_WORKFLOW_ID>` (selected directly on `ObserveActualCase` via `From list`, not in `RunConfiguration`), `<SESSION_DATA_TABLE_ID>`, `<VALIDATED_MAIN_VERSION>`, `<VALIDATED_GET_ORDER_VERSION>`, `<VERIFIED_SENDER_VERSION>` *(configure `RunConfiguration` first after creating `OrderStatusRegressionSessions`, and leave all 10 Data Table nodes unopened during setup)* |
 
 ---
 
@@ -40,11 +40,11 @@ Replace all placeholder email addresses in `WorkflowConfig` and your Google Shee
 - **`controlled-sender@example.com` / `<CUSTOMER_EMAIL>`** → Replace with your controlled customer test email in:
   - `WorkflowConfig` (`customerEmail` field) in `workflows/main-workflow.json`
   - All `customer_email` rows in `database/sample-orders.csv` (before or after importing to Google Sheets)
-  - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
+  - `Sender` (bind the customer Gmail OAuth2 credential on `SendAsCustomer`) and `RunOrderStatusRegressionTest` (`RunConfiguration.customer` field, if using the end-to-end runner)
 - **`controlled-receiver@example.com` / `<RECEIVER_EMAIL>`** → Replace with your authenticated support receiver Gmail address in:
   - `WorkflowConfig` (`receiverEmail` field) in `workflows/main-workflow.json` (used for both receiver mailbox verification and the allowlists supporting the receiver-to-self sender-mismatch test case `S08`)
   - `SelectUnresolvedRequest` (`receiverEmail` field) in `workflows/recover-order-status-request.json` (used by `FindRecoverableRequests` to scope automated recovery sweeps to your mailbox)
-  - `Sender` and `RunOrderStatusRegressionTest` (if using the end-to-end runner)
+  - `Sender` (`SenderConfig` `receiverEmail` field and receiver Gmail OAuth2 credential on `SendToSelf`) and `RunOrderStatusRegressionTest` (`RunConfiguration.receiver` field, if using the end-to-end runner)
 
 ---
 
@@ -52,7 +52,7 @@ Replace all placeholder email addresses in `WorkflowConfig` and your Google Shee
 
 Every credentialed node must be explicitly bound and verified in n8n (do not rely on default credential auto-selection):
 
-- **Gmail OAuth2 (`gmailOAuth2`):** All Gmail trigger, message read, thread read, draft list/create/get, and label nodes in `DraftOrderStatusReply` (`ReceivePendingDemo`, `ReadRecoverySource`, `ReadRecoveryThread`, `ListMailboxDrafts`, `ReadInspectedDraft`, `SaveReviewDraft`, `ReadSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, `ReadFinalSourceLabels`)—**plus** the `ReadMailboxIdentity` HTTP Request node (uses predefined Gmail OAuth2 credential).
+- **Gmail OAuth2 (`gmailOAuth2`):** All Gmail trigger, message read, thread read, draft list/create/get, and label nodes in `DraftOrderStatusReply` (`ReceivePendingDemo`, `ReadRecoverySource`, `ReadRecoveryThread`, `ListMailboxDrafts`, `ReadInspectedDraft`, `SaveReviewDraft`, `ReadSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, `ReadFinalSourceLabels`)—**plus** the `ReadMailboxIdentity` HTTP Request node (uses predefined Gmail OAuth2 credential). *(For the optional `Sender` test workflow, bind the customer Gmail OAuth2 credential on `SendAsCustomer` and the receiver Gmail OAuth2 credential on `SendToSelf`.)*
 - **Postgres (`postgres`):** Bind `OrderStatusLedger` on:
   - All 10 Postgres ledger nodes in `DraftOrderStatusReply` (`ReadRecoveryRecord`, `QuarantineRecoveryRequest`, `TransferRecoveryOwnership`, `ClaimSourceAtomically`, `RecordDraftIntent`, `RecordSavedDraft`, `RecordDraftLabelsPending`, `RecordReviewLabelsPending`, `CompleteLedger`, `RecordUnfinishedWork`)
   - `FindRecoverableRequests` in `RecoverOrderStatusRequest`

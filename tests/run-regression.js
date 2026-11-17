@@ -91,6 +91,7 @@ check("AUDIT", "model-dataset-scope", () => {
 check("AUDIT", "model-only-surface", () => {
   const w = require("../workflows/harness/evaluation-workflow.json");
   assert.equal(w.active, false);
+  assert.deepEqual(w.nodeGroups || [], []);
   const allowed = new Set([
     "n8n-nodes-base.evaluationTrigger",
     "n8n-nodes-base.evaluation",
@@ -101,17 +102,31 @@ check("AUDIT", "model-only-surface", () => {
     "@n8n/n8n-nodes-langchain.informationExtractor",
     "@n8n/n8n-nodes-langchain.chainLlm",
     "@n8n/n8n-nodes-langchain.lmChatGroq",
+    "n8n-nodes-base.stickyNote",
   ]);
   for (const n of w.nodes) {
     assert(allowed.has(n.type), n.name);
     assert(!n.credentials);
     assert(!n.retryOnFail);
+    if (n.type === "n8n-nodes-base.stickyNote") {
+      assert.equal(n.typeVersion, 1, n.name);
+      assert.equal(typeof n.parameters?.content, "string", n.name);
+      assert(n.parameters.content.startsWith("## Stage "), n.name);
+      assert(!n.parameters.content.includes("={{"), n.name);
+      assert(!n.parameters.content.includes("$("), n.name);
+      assert.notEqual(n.parameters.color, 3, n.name);
+      assert(!n.onError, n.name);
+    }
     if (n.parameters.dataTableId)
       assert.equal(
         n.parameters.dataTableId.value,
         "<MODEL_TEST_DATA_TABLE_ID>",
       );
   }
+  assert.equal(
+    w.nodes.filter((n) => n.type !== "n8n-nodes-base.stickyNote").length,
+    12,
+  );
   assert.equal(w.nodes.filter((n) => n.type === "n8n-nodes-base.if").length, 1);
   assert.equal(
     w.nodes.find((n) => n.type === "n8n-nodes-base.evaluationTrigger")

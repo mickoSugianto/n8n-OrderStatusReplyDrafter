@@ -15,19 +15,18 @@
     },
     {
       "id": "t016-node-1",
-      "name": "Send an Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
+      "name": "SendAsCustomer",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
       "position": [
         1360,
         96
       ],
       "parameters": {
-        "fromEmail": "={{ $('SenderConfig').first().json.customerEmail }}",
-        "toEmail": "={{ $('SenderConfig').first().json.receiverEmail }}",
+        "sendTo": "={{ $('SenderConfig').first().json.receiverEmail }}",
         "subject": "={{ $('ValidateFixture').item.json.subject }}",
-        "emailFormat": "text",
-        "text": "={{ $('ValidateFixture').item.json.body }}",
+        "emailType": "text",
+        "message": "={{ $('ValidateFixture').item.json.body }}",
         "options": {
           "appendAttribution": false
         }
@@ -117,12 +116,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "cfg-sender-customer-email",
-              "name": "customerEmail",
-              "value": "<CUSTOMER_EMAIL>",
-              "type": "string"
-            },
-            {
               "id": "cfg-sender-receiver-email",
               "name": "receiverEmail",
               "value": "<RECEIVER_EMAIL>",
@@ -132,7 +125,7 @@
         },
         "options": {}
       },
-      "notes": "Centralized sender setup: update customerEmail and receiverEmail here."
+      "notes": "Centralized sender destination: update receiverEmail here. Bind distinct Gmail OAuth2 credentials on SendAsCustomer (customer) and SendToSelf (receiver)."
     },
     {
       "id": "t016-node-6",
@@ -148,7 +141,7 @@
         "jsonOutput": "={{ (() => { const v=$('FixtureInput').item.json; if (!['customer','self'].includes(v.senderMode)) return {...v,senderMode:'invalid',error:'Invalid senderMode; no message sent'}; if(typeof v.subject!=='string'||!/^OSRD SMOKE [A-Za-z ]+$/.test(v.subject)||v.subject.length>180) return {...v,senderMode:'invalid',error:'Expected alphabetic OSRD SMOKE subject'}; if(typeof v.body!=='string'||!v.body.trim()||v.body.length>4000) return {...v,senderMode:'invalid',error:'Expected nonempty controlled fixture body'}; return {subject:v.subject,body:v.body,senderMode:v.senderMode}; })() }}",
         "options": {}
       },
-      "notes": "Fixed authenticated accounts and fixed destination are configured in SenderConfig. Reject invalid input before either send."
+      "notes": "Fixed destination receiverEmail is configured in SenderConfig; sender accounts come from the bound Gmail OAuth2 credentials on SendAsCustomer and SendToSelf. Reject invalid input before either send."
     },
     {
       "id": "t016-node-7",
@@ -240,7 +233,7 @@
       ],
       "parameters": {
         "mode": "raw",
-        "jsonOutput": "={{ ({senderMode:'customer',subject:$('ValidateFixture').item.json.subject,accepted:true,arrivalConfirmed:false,delivery:$('Send an Email').item.json}) }}",
+        "jsonOutput": "={{ ({senderMode:'customer',subject:$('ValidateFixture').item.json.subject,accepted:true,arrivalConfirmed:false,delivery:$('SendAsCustomer').item.json}) }}",
         "options": {}
       }
     },
@@ -258,10 +251,26 @@
         "jsonOutput": "={{ ({senderMode:'self',subject:$('ValidateFixture').item.json.subject,accepted:true,arrivalConfirmed:false,delivery:$('SendToSelf').item.json}) }}",
         "options": {}
       }
+    },
+    {
+      "id": "t018-sender-Stage1Lane",
+      "name": "Stage1Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -80
+      ],
+      "parameters": {
+        "content": "## Stage 1 — Validate & deliver fixture email\nValidate controlled OSRD SMOKE fixture inputs and route exactly one email delivery via customer Gmail or receiver self-Gmail.",
+        "width": 1920,
+        "height": 832,
+        "color": 4
+      }
     }
   ],
   "connections": {
-    "Send an Email": {
+    "SendAsCustomer": {
       "main": [
         [
           {
@@ -353,7 +362,7 @@
       "main": [
         [
           {
-            "node": "Send an Email",
+            "node": "SendAsCustomer",
             "type": "main",
             "index": 0
           }
@@ -382,22 +391,5 @@
     "saveDataErrorExecution": "all"
   },
   "pinData": {},
-  "nodeGroups": [
-    {
-      "id": "t016-group-0",
-      "name": "DeliverOneFixture",
-      "description": "Validate one controlled fixture, choose one authenticated route and return delivery identifiers.",
-      "nodeIds": [
-        "t016-node-1",
-        "t016-node-2",
-        "t016-node-5",
-        "t016-SenderConfig",
-        "t016-node-6",
-        "t016-node-7",
-        "t016-node-8",
-        "t016-node-9",
-        "t016-node-10"
-      ]
-    }
-  ]
+  "nodeGroups": []
 }

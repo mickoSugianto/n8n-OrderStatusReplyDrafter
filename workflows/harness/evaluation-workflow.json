@@ -34,7 +34,7 @@
         "options": {}
       },
       "position": [
-        240,
+        320,
         0
       ],
       "retryOnFail": false
@@ -66,7 +66,7 @@
         "options": {}
       },
       "position": [
-        480,
+        640,
         0
       ],
       "retryOnFail": false
@@ -84,8 +84,8 @@
         }
       },
       "position": [
-        720,
-        200
+        80,
+        624
       ],
       "retryOnFail": false
     },
@@ -107,8 +107,8 @@
         }
       },
       "position": [
-        720,
-        0
+        0,
+        432
       ],
       "retryOnFail": false,
       "onError": "continueRegularOutput",
@@ -127,8 +127,8 @@
         }
       },
       "position": [
-        720,
-        600
+        80,
+        1008
       ],
       "retryOnFail": false
     },
@@ -155,8 +155,8 @@
         }
       },
       "position": [
-        720,
-        400
+        0,
+        816
       ],
       "retryOnFail": false,
       "onError": "continueRegularOutput",
@@ -173,8 +173,8 @@
         "options": {}
       },
       "position": [
-        1000,
-        0
+        320,
+        432
       ],
       "retryOnFail": false
     },
@@ -189,8 +189,8 @@
         "options": {}
       },
       "position": [
-        1000,
-        400
+        320,
+        816
       ],
       "retryOnFail": false
     },
@@ -201,8 +201,8 @@
       "typeVersion": 1,
       "parameters": {},
       "position": [
-        1240,
-        200
+        640,
+        624
       ],
       "retryOnFail": false
     },
@@ -245,8 +245,8 @@
         }
       },
       "position": [
-        1480,
-        200
+        0,
+        1360
       ],
       "retryOnFail": false,
       "notes": "Native light outputs. MCP-pinned trigger tests must pin this node inert for rows after the first; they lack native row context."
@@ -335,11 +335,59 @@
         "options": {}
       },
       "position": [
-        1720,
-        200
+        320,
+        1360
       ],
       "retryOnFail": false,
       "notes": "Updates only the dedicated model-evaluation case ID. Records model failures as pass=false with the error."
+    },
+    {
+      "id": "model-Stage1Lane",
+      "name": "Stage1Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -144
+      ],
+      "parameters": {
+        "content": "## Stage 1 — Load & route benchmark case\nRead row from the dedicated model-evaluation Data Table, parse case_object, and route to extraction or drafting.",
+        "width": 1152,
+        "height": 400,
+        "color": 4
+      }
+    },
+    {
+      "id": "model-Stage2Lane",
+      "name": "Stage2Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        288
+      ],
+      "parameters": {
+        "content": "## Stage 2 — Execute model stage & score\nRun the selected Groq stage (extraction above, drafting below), score deterministic metrics, and emit ModelOutcome.",
+        "width": 1152,
+        "height": 896,
+        "color": 2
+      }
+    },
+    {
+      "id": "model-Stage3Lane",
+      "name": "Stage3Lane",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        1216
+      ],
+      "parameters": {
+        "content": "## Stage 3 — Record evaluation results\nWrite native n8n evaluation outputs and update only the dedicated evaluation Data Table row by caseId.",
+        "width": 1152,
+        "height": 400,
+        "color": 5
+      }
     }
   ],
   "connections": {
@@ -472,26 +520,7 @@
       ]
     }
   },
-  "nodeGroups": [
-    {
-      "id": "model-stage-evaluation",
-      "name": "EvaluateModelStages",
-      "description": "Choose extraction or drafting, score its output and record only to the dedicated test dataset.",
-      "nodeIds": [
-        "model-ReadModelCase",
-        "model-SelectModelStage",
-        "model-GroqExtractionModel",
-        "model-ExtractModelFields",
-        "model-GroqDraftingModel",
-        "model-DraftModelReply",
-        "model-ScoreExtraction",
-        "model-ScoreDrafting",
-        "model-ModelOutcome",
-        "model-RecordModelOutputs",
-        "model-RecordCaseById"
-      ]
-    }
-  ],
+  "nodeGroups": [],
   "settings": {
     "executionOrder": "v1",
     "executionTimeout": 120

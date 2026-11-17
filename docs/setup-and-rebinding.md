@@ -31,7 +31,7 @@ Create or select credentials in n8n and explicitly verify the bound account on *
 | **Gmail OAuth2 API** (`gmailOAuth2`) | All Gmail trigger, message read, thread read, draft list/create/read, and label nodes in `DraftOrderStatusReply` (`ReceivePendingDemo`, `ReadRecoverySource`, `ReadRecoveryThread`, `ListMailboxDrafts`, `ReadInspectedDraft`, `SaveReviewDraft`, `ReadSavedDraft`, `MarkConfirmedDraftTriaged`, `ApplyReviewAndTriagedLabels`, `ReadFinalSourceLabels`), plus the `ReadMailboxIdentity` HTTP Request node |
 | **Postgres** (`postgres`) | All 10 ledger nodes in `DraftOrderStatusReply` (`ReadRecoveryRecord`, `QuarantineRecoveryRequest`, `TransferRecoveryOwnership`, `ClaimSourceAtomically`, `RecordDraftIntent`, `RecordSavedDraft`, `RecordDraftLabelsPending`, `RecordReviewLabelsPending`, `CompleteLedger`, `RecordUnfinishedWork`) **and** `FindRecoverableRequests` in `RecoverOrderStatusRequest` (use the restricted `OrderStatusLedger` credential with SSL enabled) |
 | **n8n API** (`n8nApi`) | `ReadPreviousExecution` in `DraftOrderStatusReply` (pointed to your destination instance `/api/v1` URL for recovery checks) |
-| **Google Sheets OAuth2 API** (`googleSheetsOAuth2Api`) | `ReadAllOrders` in `GetOrder` |
+| **Google Sheets OAuth2 API** (`googleSheetsOAuth2Api`) | `ReadAllOrders` in `GetOrder` *(bind the credential only—do not touch its `By ID` spreadsheet/tab fields or switch to `From list`)* |
 | **Groq API** (`groqApi`) | `GroqExtractionModel` and `GroqDraftingModel` subnodes |
 | **OpenRouter API** (`openRouterApi`) | `OpenRouterExtractionModel` and `OpenRouterDraftingModel` subnodes |
 | **Slack API** (`slackApi`) | `SendSlackErrorAlert` in `NotifyOrderStatusError` (invite your Slack bot/app to `#order-status-drafter-alerts` and ensure your n8n editor base URL / `WEBHOOK_URL` is configured so `execution.url` links are populated in alerts) |
@@ -46,7 +46,7 @@ The demonstration design uses **two controlled email accounts**:
 - **Customer sender account** (sends test order inquiries)
 - **Support receiver account** (the Gmail inbox watched by n8n)
 
-Update the email fields in the centralized **`WorkflowConfig`** Edit Fields node (Phase `01` of `DraftOrderStatusReply`) and in **`SelectUnresolvedRequest`** (`RecoverOrderStatusRequest`):
+Update the email fields in the centralized **`WorkflowConfig`** Edit Fields node (`Stage 1` of `DraftOrderStatusReply`) and in **`SelectUnresolvedRequest`** (`RecoverOrderStatusRequest`):
 1. **`customerEmail` (`WorkflowConfig`):** Replace `controlled-sender@example.com` with your controlled customer sender email.
 2. **`receiverEmail` (`WorkflowConfig` and `SelectUnresolvedRequest`):** Replace `controlled-receiver@example.com` with your authenticated receiver Gmail address in both workflows.
    - *(Downstream nodes in `DraftOrderStatusReply`—`VerifyMailboxAndSource`, `ValidateRequestInput`, `RecheckAllowedRecipient`, and `ConfirmSavedDraft`—automatically read both addresses from `WorkflowConfig`. Allowing the receiver address in the allowlist supports the receiver-to-self sender-ownership mismatch test scenario `S08`. In `RecoverOrderStatusRequest`, `FindRecoverableRequests` reads `receiverEmail` from `SelectUnresolvedRequest`.)*
@@ -62,7 +62,7 @@ Create a new Google Sheet with a tab named **`Orders`** and import [`database/sa
 - **Replace Customer Email:** Update `customer_email` in all three rows (`1001`, `1002`, `1003`) to match your controlled customer sender address.
 - **CRITICAL — Format All Columns as Plain Text:**
   - In Google Sheets CSV import, uncheck **"Convert text to numbers, dates, and formulas"**, or pre-format columns `A:F` as **Plain text** before pasting.
-  - `ReadAllOrders` reads unformatted values (`UNFORMATTED_VALUE` / `SERIAL_NUMBER`) so that accidental numeric or date-serial conversions are caught and rejected by the validator.
+  - `ReadAllOrders` reads unformatted values (`UNFORMATTED_VALUE` / `SERIAL_NUMBER`) using the spreadsheet and tab IDs configured in `GetOrderConfig`, so that accidental numeric or date-serial conversions are caught and rejected by the validator.
   - Verify that `1001`, `1002`, and `1003` are stored as text strings, `2026-10-20` is a literal `YYYY-MM-DD` string, and empty optional cells (`tracking_number` and `estimated_delivery` on `1002`; `estimated_delivery` on `1003`) are genuinely blank (no spaces, `null` text, or formulas).
 
 ---
@@ -93,14 +93,14 @@ Gmail REST API operations require internal IDs (e.g. `Label_1`), not label names
 
 ### 3. Rebind Resource & Workflow Placeholders (6 Nodes Total)
 
-All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (Phase `01`), Slack error alert channel configuration lives in **`ErrorAlertConfig`** inside `NotifyOrderStatusError`, recovery sweep settings live in **`SelectUnresolvedRequest`** inside `RecoverOrderStatusRequest`, `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, and sub-workflow/sheet selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
+All label IDs and email addresses inside `DraftOrderStatusReply` are centralized in the **`WorkflowConfig`** Edit Fields node (`Stage 1`), Slack error alert channel configuration lives in **`ErrorAlertConfig`** inside `NotifyOrderStatusError`, recovery sweep settings live in **`SelectUnresolvedRequest`** inside `RecoverOrderStatusRequest`, `ReceivePendingDemo` already filters by `label:order-status-reply-drafter/demo-input` via its search query, spreadsheet and tab IDs live in **`GetOrderConfig`** inside `GetOrder`, and sub-workflow selections use n8n dropdowns—**no raw JavaScript expressions need to be edited**:
 
 | Node | Workflow | Action |
 | --- | --- | --- |
-| **`ReadAllOrders`** | `GetOrder` | Select your Google Sheet (`<SPREADSHEET_ID>`) and the `Orders` tab (`<ORDERS_TAB_ID>`) from the dropdowns (keep range `A:F` and read all rows) |
+| **`GetOrderConfig`** | `GetOrder` | Fill in `spreadsheetId` (document ID from `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`) and `sheetGid` (the **numeric** tab GID from `#gid=<ORDERS_TAB_ID>`, e.g., `"0"`, **not** the tab name `"Orders"`) without touching `ReadAllOrders`'s dropdowns so `Range: A:F` and `Output Formatting` (`UNFORMATTED_VALUE`, `SERIAL_NUMBER`) are preserved |
 | **`ErrorAlertConfig`** | `NotifyOrderStatusError` (Phase `01`) | Replace `slackChannelId` (`<SLACK_ERROR_CHANNEL_ID>`) with your Slack channel ID for `#order-status-drafter-alerts` |
-| **`WorkflowConfig`** | `DraftOrderStatusReply` (Phase `01`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
-| **`GetOrderDeterministically`** | `DraftOrderStatusReply` (Phase `04`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
+| **`WorkflowConfig`** | `DraftOrderStatusReply` (`Stage 1`) | Fill in the 5 form fields: `customerEmail`, `receiverEmail`, and the 3 internal Gmail IDs (`inputLabelId`, `triagedLabelId`, `reviewLabelId`—e.g. `Label_1`, `Label_2`, `Label_3` from step 2 above, **not** the label text names) |
+| **`GetOrderDeterministically`** | `DraftOrderStatusReply` (`Stage 3`) | Select the imported `GetOrder` workflow (`<GET_ORDER_WORKFLOW_ID>`) from the dropdown (keep string `order_number`, per-item mode, wait enabled, type conversion off) |
 | **`SelectUnresolvedRequest`** | `RecoverOrderStatusRequest` | Replace `receiverEmail` (`controlled-receiver@example.com`) with your authenticated support receiver Gmail address (keep `cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`, and leave manual override fields blank/false) |
 | **`RecoverThroughMain`** | `RecoverOrderStatusRequest` | Select the imported `DraftOrderStatusReply` workflow (`<MAIN_WORKFLOW_ID>`) from the dropdown |
 
@@ -118,7 +118,7 @@ All label IDs and email addresses inside `DraftOrderStatusReply` are centralized
 
 ### Publish `GetOrder` & `NotifyOrderStatusError` First
 In n8n, callable sub-workflows and error workflows must be published/activated before the parent workflows that reference them:
-1. Open `GetOrder`, verify its Google Sheets binding, and **publish** it (`GetOrder` has no polling trigger of its own).
+1. Open `GetOrder`, verify `GetOrderConfig` (`spreadsheetId` / `sheetGid`) and `ReadAllOrders`'s Google Sheets credential and options (`A:F`, `UNFORMATTED_VALUE`, `SERIAL_NUMBER`), and **publish** it (`GetOrder` has no polling trigger of its own).
 2. Open `NotifyOrderStatusError`, verify `ErrorAlertConfig` (`slackChannelId`) and `SendSlackErrorAlert` (`slackApi` credential), and **activate/publish** it before activating `DraftOrderStatusReply` or `RecoverOrderStatusRequest`.
 3. Open `DraftOrderStatusReply`, verify all connections, bindings, and that **zero test pins** exist on any node, then open **Workflow Settings → Error Workflow** in the n8n UI and select **`NotifyOrderStatusError`**.
 4. Open `RecoverOrderStatusRequest`, verify `SelectUnresolvedRequest` (`receiverEmail`), `FindRecoverableRequests` (`OrderStatusLedger` Postgres credential), and `RecoverThroughMain` (`DraftOrderStatusReply`), then open **Workflow Settings → Error Workflow** in the n8n UI and select **`NotifyOrderStatusError`**.
