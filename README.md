@@ -92,7 +92,7 @@ First-time transient post-claim failures (`status = 'NeedsRecovery'`, `recovery_
 - **`Processing`** — Re-runs validation, extraction, lookup, and drafting under the new owner token.
 - **`DraftSaved` / `LabelsPending` (draft)** — Reads back and verifies the existing Gmail draft, then completes missing labels without calling models or creating a second draft.
 - **`LabelsPending` (manual review)** — Applies and verifies the `needs-review` and `triaged` labels without calling models.
-- **`DraftIntentRecorded` (uncertain write)** — Refuses to create a new draft (`UncertainWriteNeedsInspection`) unless the operator inspects Gmail and supplies the exact existing `inspectedDraftId` to verify and adopt.
+- **`DraftIntentRecorded` (uncertain write)** — In `mode = 'auto'`, `RecoveryLane` reconciles the thread and mailbox draft list (`ReconcileUncertainDraft`): it adopts 1 matching draft, or recreates the draft from persisted `record.intent` (`RestoreRecordedIntent`, 0 LLM/Sheets calls) when 0 drafts and 0 post-source messages exist, or quarantines on ambiguity. In `mode = 'manual'`, `CheckRecoveryRequest` refuses uninspected creation (`UncertainWriteNeedsInspection`) unless the operator inspects Gmail and supplies the exact `inspectedDraftId` to verify and adopt.
 
 See the [Operator Recovery Guide](docs/order-status-recovery-guide.md) for step-by-step instructions.
 
@@ -100,11 +100,12 @@ See the [Operator Recovery Guide](docs/order-status-recovery-guide.md) for step-
 
 ## Requirements
 
-- **n8n** with built-in nodes: `Gmail`, `Google Sheets`, `Postgres`, `HTTP Request`, `n8n API`, `Groq Chat Model`, `OpenRouter Chat Model`, `Information Extractor`, and `Basic LLM Chain`.
+- **n8n** with built-in nodes: `Gmail`, `Google Sheets`, `Postgres`, `Slack`, `HTTP Request`, `n8n API`, `Schedule Trigger`, `Error Trigger`, `Groq Chat Model`, `OpenRouter Chat Model`, `Information Extractor`, and `Basic LLM Chain`.
 - **Google OAuth2 credentials** for Gmail and Google Sheets (plus Google Drive API enabled if required for sheet discovery).
 - **Two controlled email accounts** (one customer test sender, one support receiver mailbox) and a Google Sheet containing the synthetic `Orders` tab.
-- **Supabase PostgreSQL database** configured with [`database/order-status-ledger.sql`](database/order-status-ledger.sql) and connected via SSL using the restricted `order_status_ledger` role.
+- **Supabase PostgreSQL database** configured with [`database/order-status-ledger.sql`](database/order-status-ledger.sql) (or upgraded with [`database/migrate-automated-recovery.sql`](database/migrate-automated-recovery.sql)) and connected via SSL using the restricted `order_status_ledger` role.
 - **Groq API** (`qwen/qwen3.8-27b`) and **OpenRouter API** (`openrouter/free`) credentials.
+- **Slack API credential** (`slackApi`, used by `NotifyOrderStatusError` to post sanitized error alerts to `#order-status-drafter-alerts`).
 - **n8n API credential** (used by the main workflow during recovery to verify that the prior execution has stopped).
 
 ---
@@ -113,15 +114,15 @@ See the [Operator Recovery Guide](docs/order-status-recovery-guide.md) for step-
 
 Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.md) and the placeholder checklist in [Rebinding Map](docs/rebinding-map.md).
 
-1. **Database Setup:** Run [`database/order-status-ledger.sql`](database/order-status-ledger.sql) in a dedicated Supabase project, set the password for `order_status_ledger`, create the `OrderStatusLedger` Postgres credential in n8n (with SSL), and run [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql). See [Ledger Database Setup](docs/ledger-database-setup.md).
-2. **Import Workflows (Inactive):** Import [`workflows/get-order.json`](workflows/get-order.json), [`workflows/main-workflow.json`](workflows/main-workflow.json), and [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json). Keep them inactive while configuring.
+1. **Database Setup:** Run [`database/order-status-ledger.sql`](database/order-status-ledger.sql) in a dedicated Supabase project (or [`database/migrate-automated-recovery.sql`](database/migrate-automated-recovery.sql) when upgrading an existing deployment), set the password for `order_status_ledger`, create the `OrderStatusLedger` Postgres credential in n8n (with SSL), and run [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql). See [Ledger Database Setup](docs/ledger-database-setup.md).
+2. **Import Workflows (Inactive):** Import [`workflows/get-order.json`](workflows/get-order.json), [`workflows/notify-order-status-error.json`](workflows/notify-order-status-error.json), [`workflows/main-workflow.json`](workflows/main-workflow.json), and [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json). Keep them inactive while configuring.
 3. **Prepare Orders Sheet:** Import [`database/sample-orders.csv`](database/sample-orders.csv) into an `Orders` tab with **all 6 columns formatted as plain text** (`order_number`, `customer_email`, `status`, `item`, `tracking_number`, `estimated_delivery`). Replace the sample `customer_email` values with your controlled sender address.
 4. **Create Gmail Labels:** In the receiver Gmail account, create:
    - `order-status-reply-drafter/demo-input`
    - `order-status-reply-drafter/triaged`
    - `order-status-reply-drafter/needs-review`
-5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes and HTTP profile read). Fill in the 5 fields on `WorkflowConfig` (`customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, `reviewLabelId`), fill in the 2 fields on `GetOrderConfig` (`spreadsheetId`, `sheetGid`), and select the sub-workflows from the dropdowns on `GetOrderDeterministically` and `RecoverThroughMain` using [`docs/rebinding-map.md`](docs/rebinding-map.md).
-6. **Publish Callable Sub-Workflow:** Validate and publish `GetOrder` before activating the main workflow.
+5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes, the HTTP profile read, `FindRecoverableRequests` in `RecoverOrderStatusRequest`, and `SendSlackErrorAlert` in `NotifyOrderStatusError`). Fill in the 5 fields on `WorkflowConfig` (`customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, `reviewLabelId`), the 2 fields on `GetOrderConfig` (`spreadsheetId`, `sheetGid`), `slackChannelId` on `ErrorAlertConfig`, and `receiverEmail` on `SelectUnresolvedRequest`, then select the sub-workflows from the dropdowns on `GetOrderDeterministically` and `RecoverThroughMain` using [`docs/rebinding-map.md`](docs/rebinding-map.md).
+6. **Publish Dependencies & Attach Error Workflow:** Validate and publish `GetOrder`, activate/publish `NotifyOrderStatusError`, and select `NotifyOrderStatusError` under **Workflow Settings → Error Workflow** on both `DraftOrderStatusReply` and `RecoverOrderStatusRequest` before activating the main workflow or recovery sweeper.
 7. **Supervised Test:** Send a test email from your controlled sender with the `demo-input` label applied, activate `DraftOrderStatusReply` for one supervised poll cycle, verify the resulting Gmail draft, labels, and `Completed` ledger row, then deactivate the main workflow.
 
 ---
@@ -132,11 +133,12 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 | --- | --- |
 | [`workflows/main-workflow.json`](workflows/main-workflow.json) | Main workflow (`DraftOrderStatusReply`) |
 | [`workflows/get-order.json`](workflows/get-order.json) | Deterministic order lookup sub-workflow (`GetOrder`) |
-| [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json) | Supervised manual recovery caller (`RecoverOrderStatusRequest`) |
+| [`workflows/recover-order-status-request.json`](workflows/recover-order-status-request.json) | Automated 5-minute recovery sweeper and manual recovery caller (`RecoverOrderStatusRequest`) |
 | [`workflows/notify-order-status-error.json`](workflows/notify-order-status-error.json) | Stateless Slack error-alerting workflow (`NotifyOrderStatusError`) |
 | [`database/sample-orders.csv`](database/sample-orders.csv) | Synthetic sample orders (import all columns as plain text) |
 | [`database/order-status-ledger.sql`](database/order-status-ledger.sql) | PostgreSQL table, constraints, RLS, role, and RPC functions |
-| [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql) | Read-only preflight verification SQL |
+| [`database/migrate-automated-recovery.sql`](database/migrate-automated-recovery.sql) | Idempotent migration SQL adding `recovery_attempts` and automated recovery RPCs to existing deployments |
+| [`database/verify-order-status-ledger.sql`](database/verify-order-status-ledger.sql) | Read-only preflight verification SQL (18 boolean checks) |
 | [`docs/system-design.md`](docs/system-design.md) | Full as-built architecture, data contracts, state machines, and sequence diagrams |
 | [`docs/setup-and-rebinding.md`](docs/setup-and-rebinding.md) | Step-by-step installation and credential/resource binding guide |
 | [`docs/rebinding-map.md`](docs/rebinding-map.md) | Complete checklist of placeholders across all 8 workflows |
@@ -155,6 +157,12 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 Requires Node.js (built-in modules only; no `npm install` or network access needed). Run from this directory:
 
 ```sh
+npm test
+```
+
+Or run each suite individually:
+
+```sh
 node tests/run-regression.js
 node tests/check-recovery.js
 node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json
@@ -164,18 +172,19 @@ node tests/check-harness.js
 - `run-regression.js` runs **264 unit/policy test cases** and **3 static audits**.
 - `check-recovery.js` runs **75 offline recovery, guard, and snapshot checks**.
 - `check-source-linkage.js` verifies that **16 inline runtime expressions** across `main-workflow.json`, `get-order.json`, and `notify-order-status-error.json` and **both model stage prompts/schemas/settings** match the shared policy libraries.
-- `check-harness.js` verifies structural, expression, safety-gate, Data Table mappings, and swimlane-layout invariants across all 4 harness workflows in `workflows/harness/` (`run-order-status-regression.json`, `observe-order-status-case.json`, `sender-callable.json`, `evaluation-workflow.json`).
+- `check-harness.js` verifies **10 offline E2E harness checks** covering structural, expression, safety-gate, Data Table mappings, and swimlane-layout invariants across all 4 harness workflows in `workflows/harness/` (`run-order-status-regression.json`, `observe-order-status-case.json`, `sender-callable.json`, `evaluation-workflow.json`).
 
 ---
 
 ## Tested Behavior
 
-Recorded verification in the controlled source environment (October 20, 2026):
+Recorded verification in the controlled source environment:
 
 | Verification Layer | Recorded Result |
 | --- | --- |
-| **Offline Policy & Validator Suite** | **261 / 261 passed** + 3 static/source audits |
-| **Offline Recovery & Guard Checks** | **74 / 74 passed** (plus 107 observer/control checks) |
+| **Offline Policy & Validator Suite** | **264 / 264 passed** + 3 static/source audits |
+| **Offline Recovery & Guard Checks** | **75 / 75 passed** (plus 107 observer/control checks) |
+| **Offline Source-Linkage & E2E Harness Audits** | **16 / 16 expressions matched** · **10 / 10 harness checks passed** |
 | **Native Model-Stage Evaluation** | **8 / 8 passed** on Groq `qwen/qwen3.8-27b` (5 extraction, 3 drafting; 8 calls, 3,892 total tokens) |
 | **End-to-End Functional Regression** | **10 / 10 passed** (`S01`–`S10`: 6 verified drafts, 4 manual reviews, 0 customer emails sent, initial workflow state restored) |
 | **Focused Reliability Proofs** | Overlapping concurrent claim exclusion, same-draft recovery, review-label recovery, completed-source skip, and uncertain-write refusal (`DraftIntentRecorded` with simulated checkpoint loss) |
@@ -188,8 +197,8 @@ Recorded verification in the controlled source environment (October 20, 2026):
 - **Quote stripping:** Strips lines starting with `>` (after optional whitespace); does not parse arbitrary localized/HTML reply headers.
 - **Weak sender identity:** Matching the `From` address to `customer_email` is a consistency check, not cryptographic or session-based customer authentication.
 - **Bounded output checks:** Deterministic checks catch empty text, missing tracking numbers, and URLs (`http`/`www.`), but cannot guarantee absence of every subtle hallucination. **A human must review every draft before sending.**
-- **External API boundary:** PostgreSQL and Gmail do not share an atomic distributed transaction, and the ledger cannot cancel an in-flight Gmail HTTP request. Recovery relies on confirming the prior execution has stopped and inspecting Gmail when a write outcome is uncertain.
-- **Operations:** No automated retry queue, background scheduler, monitoring dashboard, or automated ledger purge is included. Completed ledger keys must be retained to prevent reprocessing old emails.
+- **External API boundary:** PostgreSQL and Gmail do not share an atomic distributed transaction, and the ledger cannot cancel an in-flight Gmail HTTP request. Recovery relies on confirming the prior execution has stopped (plus a 60-second write-settle window in auto mode) and reconciling or inspecting Gmail when a write outcome is uncertain.
+- **Operations:** While `RecoverOrderStatusRequest` (`ScheduleRecoverySweep`) provides a bounded 5-minute automated recovery sweep (`max_attempts = 1`) and `NotifyOrderStatusError` provides sanitized Slack failure alerting, no general-purpose job queue, external monitoring dashboard, or automated ledger purge is included. Completed ledger keys must be retained to prevent reprocessing old emails.
 
 ---
 

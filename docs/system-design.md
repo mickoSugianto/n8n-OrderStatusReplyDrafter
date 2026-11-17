@@ -9,7 +9,7 @@
 3. Dated verification records.
 4. Historical plans.
 
-The [main export](../workflows/main-workflow.json), [GetOrder](../workflows/get-order.json), [recovery](../workflows/recover-order-status-request.json) and [ledger SQL](../database/order-status-ledger.sql) define the application baseline. The [reliability results](../README.md#tested-behavior) and [regression results](../README.md#tested-behavior) show what was actually demonstrated.
+The [main export](../workflows/main-workflow.json), [GetOrder](../workflows/get-order.json), [recovery](../workflows/recover-order-status-request.json), [error alerting](../workflows/notify-order-status-error.json), [ledger SQL](../database/order-status-ledger.sql) and [ledger migration SQL](../database/migrate-automated-recovery.sql) define the application baseline. The [reliability results](../README.md#tested-behavior) and [regression results](../README.md#tested-behavior) show what was actually demonstrated.
 
 A later source closure recorded a native main export that differs from the packaged one in omitted defaults and in presentation dimensions/position. Node names, connections, settings and groups were retained. The package keeps the verified delivered baseline. This document does not establish byte-for-byte parity with the current live workflow, and it does not record a new integration pass.
 
@@ -18,7 +18,7 @@ A later source closure recorded a native main export that differs from the packa
 ## Contents
 
 1. [Purpose and boundaries](#1-purpose-and-boundaries)
-2. [Context, deployment and seven components](#2-context-deployment-and-seven-components)
+2. [Context, deployment and eight components](#2-context-deployment-and-eight-components)
 3. [Processing, phases and ten scenarios](#3-processing-phases-and-ten-scenarios)
 4. [Data and interface contracts](#4-data-and-interface-contracts)
 5. [Models and deterministic policy](#5-models-and-deterministic-policy)
@@ -60,13 +60,12 @@ Orders come from a synthetic six-column Google Sheet. Attachments are not downlo
 - additional languages,
 - multiple-order replies,
 - attachments,
-- autonomous customer sends,
-- automatic recovery, and
+- autonomous customer sends, and
 - unattended production deployment.
 
 The callable test Sender sends controlled fixture emails; it does not send customer replies. No measured savings, service-level objective or production capacity is claimed.
 
-## 2. Context, deployment and seven components
+## 2. Context, deployment and eight components
 
 ```mermaid
 flowchart LR
@@ -91,6 +90,9 @@ flowchart LR
   subgraph DB["Supabase PostgreSQL boundary"]
     L["Dedicated application ledger"]
   end
+  subgraph Slack["Slack alerting boundary"]
+    A["#order-status-drafter-alerts"]
+  end
   C -->|"Gmail delivery"| G
   O -->|"admit, inspect, manually send"| G
   O -->|"configure / recover / test"| M
@@ -99,22 +101,25 @@ flowchart LR
   M -->|"credentialed HTTPS"| Q
   M -->|"credentialed HTTPS"| R
   M <-->|"Postgres over TLS"| L
+  M -->|"sanitized error alerts"| A
+  A -->|"actionable triage alerts"| O
   T -->|"n8n API and callable workflows"| M
   T <-->|"Gmail evidence and fixture delivery"| G
 ```
 
-**Boundary rule.** Only credentialed n8n code touches external systems; customer text never grants tool access. Two things cross boundaries: model input goes to the model providers, and private draft intent goes to the database. Normal polling needs outbound access to services only. It does not need a public webhook, a tunnel, the test runner or an evaluation table. Reachability of the admin UI/API and Google OAuth setup are installation concerns, and the tunnel used in the source environment is not an application dependency.
+**Boundary rule.** Only credentialed n8n code touches external systems; customer text never grants tool access. Three things cross boundaries: model input goes to the model providers, private draft intent goes to the database, and sanitized operational error alerts (with zero customer PII or message bodies) go to Slack. Normal polling needs outbound access to services only. It does not need a public webhook, a tunnel, the test runner or an evaluation table. Reachability of the admin UI/API and Google OAuth setup are installation concerns, and the tunnel used in the source environment is not an application dependency.
 
-All seven delivered exports are inactive and stripped of credentials. The inactive flag in the export metadata does not mean callable dependencies can skip publication on the destination.
+All eight delivered exports are inactive and stripped of credentials. The inactive flag in the export metadata does not mean callable dependencies can skip publication on the destination.
 
 | Packaged workflow | Trigger/input → responsibility → output | Dependencies and credential types | Operational role |
 | --- | --- | --- | --- |
 | [DraftOrderStatusReply](../workflows/main-workflow.json) | Gmail every-minute poll, or typed recovery `request` object → own, route, save/confirm/label → completed context or named skip; failures stop | Gmail OAuth2 (including profile HTTP request), Postgres, Sheets through GetOrder, Groq API, OpenRouter API; n8n API for previous execution during recovery | Application entry; publish/start deliberately for polling; stopped at final closure |
 | [GetOrder](../workflows/get-order.json) | Typed string `order_number` → exact matched-row validation → one lookup contract | Google Sheets OAuth2 | Published callable dependency; no poller |
 | [RecoverOrderStatusRequest](../workflows/recover-order-status-request.json) | 5-minute `ScheduleRecoverySweep` (`mode: "auto"`) or manual `StartRecovery` (`mode: "manual"`) → read-only candidate discovery (`FindRecoverableRequests`) or manual selection (`SelectUnresolvedRequest`) → shared `RecoverThroughMain` → main outcome | Bound main and `OrderStatusLedger` Postgres credential (`FindRecoverableRequests`); Gmail and n8n API credentials live in main | Automated 5-minute sweeper and manual operator override; shipped inactive |
+| [NotifyOrderStatusError](../workflows/notify-order-status-error.json) | n8n `Error Trigger` (`ReceiveWorkflowError`) or callable `ReceiveAlertRequest` → classify failure, strip PII/prompts, escape Slack mrkdwn → post alert and return `{classification, channel_id, slack_ts}` | Slack API (`slackApi` on `SendSlackErrorAlert`); stateless (zero Postgres, Gmail, Sheets, or LLM dependencies) | Published/active error workflow attached to `DraftOrderStatusReply` and `RecoverOrderStatusRequest`; shipped inactive |
 | [EvaluateOrderStatusModels](../workflows/harness/evaluation-workflow.json) | Native Evaluation Trigger rows → select extraction/drafting stage and record scored result | Groq API; separate evaluation Data Table | Optional testing, inactive/unpublished; no Gmail or Orders path |
 | [RunOrderStatusRegressionTest](../workflows/harness/run-order-status-regression.json) | Manual configured mode → readiness, session ownership, fixture dispatch, observation, restoration → SuiteResults and session row | n8n API, receiver Gmail OAuth2, read-only Sheets OAuth2, sessions Data Table; GetOrder, observer and Sender | Optional test orchestrator; may temporarily start selected main; stays inactive between runs |
-| [ObserveOrderStatusCase](../workflows/harness/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
+| [ObserveOrderStatusRegressionCase](../workflows/harness/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
 | [Sender](../workflows/harness/sender-callable.json) | Typed `subject`, `body`, `senderMode`, or manual fixture → exactly one selected delivery path → acceptance receipt | Customer Gmail OAuth2 or receiver Gmail OAuth2 | Published callable test dependency; manual entry also available; no autonomous trigger |
 
 The recipient package runs from sanitized exports and self-contained test assets. Build generators are not runtime dependencies, and they are neither required nor included. The source n8n application version and the destination's importer behavior are unverified. Supabase hosts the ledger only — not the Orders sheet, n8n internals or the test Data Tables.
@@ -123,7 +128,9 @@ The recipient package runs from sanitized exports and self-contained test assets
 flowchart LR
   subgraph App["Application workflows"]
     M["Main"] -->|"typed exact lookup"| G["GetOrder"]
-    R["Manual recovery"] -->|"typed request"| M
+    R["Automated & manual recovery"] -->|"typed request"| M
+    M -. "visible failure" .-> N["NotifyOrderStatusError"]
+    R -. "visible failure" .-> N
   end
   subgraph Tests["Optional test workflows"]
     T["End-to-end runner"] -->|"one selected fixture"| S["Sender"]
@@ -667,7 +674,7 @@ Keeping completed keys is part of correctness. Deleting them, recreating the tab
 
 When a workflow execution terminates in an unhandled error or reaches a visible failure stop (`StopVisiblyWithoutTriage` in `DraftOrderStatusReply`, `VerifySweepBatchOutcome` in `RecoverOrderStatusRequest`, or a polling trigger failure), n8n invokes **`NotifyOrderStatusError`** ([`workflows/notify-order-status-error.json`](../workflows/notify-order-status-error.json)), attached via **Workflow Settings → Error Workflow**:
 
-- **Zero shared failure dependencies:** `NotifyOrderStatusError` is completely stateless and makes zero PostgreSQL, Gmail, Google Sheets, or LLM calls. Its 7-node pipeline (`ReceiveWorkflowError` / `ReceiveAlertRequest` $\rightarrow$ `AlertInputEnvelope` $\rightarrow$ `ErrorAlertConfig` $\rightarrow$ `ParseErrorToSlackAlert` $\rightarrow$ `SendSlackErrorAlert` $\rightarrow$ `ReturnAlertReceipt`) depends only on Slack (`retryOnFail: true`, `maxTries: 3`, `waitBetweenTries: 3000` ms) and never sets `errorWorkflow` on itself.
+- **Zero shared failure dependencies:** `NotifyOrderStatusError` is completely stateless and makes zero PostgreSQL, Gmail, Google Sheets, or LLM calls. Its 7-node pipeline (`ReceiveWorkflowError` / `ReceiveAlertRequest` $\rightarrow$ `AlertInputEnvelope` $\rightarrow$ `ErrorAlertConfig` $\rightarrow$ `ParseErrorToSlackAlert` $\rightarrow$ `SendSlackErrorAlert` $\rightarrow$ `ReturnAlertReceipt`) depends only on Slack (`retryOnFail: true`, `maxTries: 3`, `waitBetweenTries: 5000` ms) and never sets `errorWorkflow` on itself.
 - **Alerting boundary:** First-time transient post-claim failures (`status = 'NeedsRecovery'`, `recovery_attempts = 0`) exit quietly via `NeedsImmediateAlert` $\rightarrow$ `ReturnQueuedForAutoRecovery` so the 5-minute sweeper can self-heal without paging operators. Only terminal `NeedsInspection` / quarantine transitions, pre-claim outages, trigger failures, and sweeper errors fail visibly and trigger Slack alerts.
 - **Strict allowlist & PII redaction (`src/error-policy.js`):** `ParseErrorToSlackAlert` parses the structured JSON message emitted by `StopVisiblyWithoutTriage` / `VerifySweepBatchOutcome`, extracts only allowlisted operational fields (`source_message_id`, `phase`, `status`, `recovery_attempts`), strips email addresses and quoted customer/prompt text via `sanitizeReason()`, and neutralizes Slack mrkdwn/mention tokens (`&`, `<`, `>`, `@here`, `@channel`) via `escapeSlack()`.
 
@@ -697,7 +704,7 @@ All external read nodes in `RecoveryLane` (`ReadRecoverySource`, `ReadPreviousEx
   - Terminal and settled $\ge 60$ seconds $\rightarrow$ sets `writesSettled: true` and auto-generates the audit `note`.
 
 **Step 3 — Multi-turn safe `DraftIntentRecorded` reconciliation (`RecoveryLane`).**
-When `record.phase === 'DraftIntentRecorded'` and no manual `inspectedDraftId` was pre-supplied (`InspectedDraftRequired` branch `reconcile`), main executes `ReadRecoveryThread` (`thread.get`), `ListMailboxDrafts` (`draft.getAll` with `returnAll: true` and `alwaysOutputData: true`), and `ReconcileUncertainDraft` (`reconcileThreadAndDrafts` with `executeOnce: true`):
+When `record.phase === 'DraftIntentRecorded'` in `mode === 'auto'` and no `inspectedDraftId` was pre-supplied (`InspectedDraftRequired` branch `ReconcileThreadAndDrafts`; note that `mode !== 'auto'` blocks blank `inspectedDraftId` earlier at `CheckRecoveryRequest` with `UncertainWriteNeedsInspection`), main executes `ReadRecoveryThread` (`thread.get`), `ListMailboxDrafts` (`draft.getAll` with `returnAll: true` and `alwaysOutputData: true`), and `ReconcileUncertainDraft` (`reconcileThreadAndDrafts` with `executeOnce: true`):
 1. **Multi-turn post-source slice:** Finds `sourceIndex = thread.messages.findIndex(m => m.id === record.source_message_id)`. Earlier `SENT` replies at indices `< sourceIndex` from prior conversation turns are ignored. Any non-`DRAFT` message at index `> sourceIndex` means a reply was already sent or a newer customer follow-up arrived $\rightarrow$ **Case C quarantine (`SentOrNewerMessageAfterSourceNeedsInspection`)**.
 2. **Thread vs. mailbox draft cross-check:** Compares `DRAFT` messages in `thread.messages` against drafts for `record.thread_id` in `ListMailboxDrafts`:
    - **Case A (Adopt 1 matching draft):** Exactly 1 draft exists in both `thread.get` and `draft.getAll` with matching message IDs (`resolution: "InspectSingleDraft"`). `RouteDraftReconciliation` routes to `ReadInspectedDraft` → `VerifyInspectedDraft` (`verifiedDraft`), verifying recipient, thread, subject, trimmed plain-text body, `DRAFT` label, and absence of CC/BCC against `record.intent`. If verified, `TransferRecoveryOwnership` adopts `draft_id` and `draft_message_id` and transitions `DraftIntentRecorded → DraftSaved`.
@@ -788,18 +795,19 @@ Matching email strings is not strong customer authentication. It does not show c
 
 ### Credentials and access
 
-Gmail/Sheets OAuth, provider API keys, and n8n API/Postgres access all live in n8n credentials. Tokens never appear in text parameters. Rebind and inspect every credentialed node; a matching credential display name does not prove it is the right account.
+Gmail/Sheets OAuth, provider API keys, Slack API tokens, and n8n API/Postgres access all live in n8n credentials. Tokens never appear in text parameters. Rebind and inspect every credentialed node; a matching credential display name does not prove it is the right account.
 
 - Main needs draft, thread/draft-list, label and profile operations, plus Postgres ledger access and n8n API previous-execution reads.
 - The child (`GetOrder`) needs order reads.
 - `RecoverOrderStatusRequest` needs Postgres (`OrderStatusLedger`) on `FindRecoverableRequests` for read-only candidate discovery.
+- `NotifyOrderStatusError` needs Slack API access (`slackApi` on `SendSlackErrorAlert`) to post sanitized operational alerts to `#order-status-drafter-alerts`.
 - The test runner's n8n API access additionally reads workflows and executions and activates or deactivates main.
 
 Use scoped API permissions where supported. Non-Enterprise access may be broader, and the package does not claim it is restricted per workflow. The workflow caller policy is `workflowsFromSameOwner`, and trusted same-owner code remains privileged.
 
 ### Database role and SQL
 
-The SQL creates a dedicated login role with no superuser, no database or role creation, no replication and no RLS bypass.
+The [setup SQL](../database/order-status-ledger.sql) (and idempotent [migration SQL](../database/migrate-automated-recovery.sql) for existing deployments) creates a dedicated login role with no superuser, no database or role creation, no replication and no RLS bypass.
 
 - It grants schema usage and ledger SELECT/INSERT/UPDATE. No DELETE or schema CREATE is intended. The [read-only preflight](../database/verify-order-status-ledger.sql) checks effective privileges, `recovery_attempts`, RLS, and all five RPC grants (18 boolean checks).
 - Anonymous/authenticated client access and public function execution are revoked.
@@ -835,7 +843,7 @@ There are three reusable test types. They answer different questions, so do not 
 
 | Type and artifact | How it is invoked and what it proves | Recorded provenance and limits |
 | --- | --- | --- |
-| Direct policy tests, [package](testing-guide.md) | `node tests/run-regression.js` from this package folder; independent expected fixtures call shared policy functions | Current 246 cases (78 order-validator, 168 other policy) plus three separate static/source audits; historical model-package/refactor records from 2026-10-19, reconfirmed offline at closure. Not whole-graph integration |
+| Direct policy tests, [package](testing-guide.md) | `node tests/run-regression.js` from this package folder; independent expected fixtures call shared policy functions | Current 264 cases (78 order-validator, 186 other policy, including 15 error-alert formatting/redaction cases) plus three separate static/source audits; historical model-package/refactor records from 2026-10-19, reconfirmed offline at closure. Not whole-graph integration |
 | Model-only evaluation, [export/cases](../workflows/harness/evaluation-workflow.json) | Reconstruct eight rows, bind Groq/table, use native Evaluation Trigger/Evaluate all following package guide | Eight real cases: five extraction, three drafting; 8/8, eight observed calls / 3,892 tokens. No new model calls for unchanged reliability-layer prompts; no route/save/recovery/failover proof |
 | Actual-main end-to-end, [runner/observer/Sender](testing-guide.md) | Configure selected validated versions and readiness, then manually Execute runner once | Final reliability run 2026-10-20: ten real sources, six approved drafts, four reviews, 10/10 PASS, starting state restored. Real services, bounded controlled conditions |
 
@@ -843,7 +851,8 @@ There are three reusable test types. They answer different questions, so do not 
 
 **Supporting checks.** These accompany the focused reliability proofs and are not extra live email cases.
 
-- **73 recovery checks** (`node tests/check-recovery.js`) cover automated and manual recovery guards, multi-turn thread/draft reconciliation, write-settle and zombie-timeout policies, SQL RPC/migration definitions, source parity, and graph topology relationships.
+- **75 recovery checks** (`node tests/check-recovery.js`) cover automated and manual recovery guards, multi-turn thread/draft reconciliation, write-settle and zombie-timeout policies, SQL RPC/migration definitions, source parity, `NotifyOrderStatusError` and `GetOrderConfig` structure, and graph topology relationships.
+- **10 offline E2E harness checks** (`node tests/check-harness.js`) cover structural, expression, safety-gate, Data Table `resourceMapper` column-mapping/filter, and swimlane-layout invariants across all four harness workflows.
 - **107 observer/control checks** include eleven negative ledger controls.
 - **Seven final-candidate native dry runs and one observer check** used pinned side effects. They are configuration evidence, not new service proof.
 - The [sanitized summary](../README.md#tested-behavior) retains the proofs for overlap, stale-owner rejection, same-draft recovery, review-label recovery, completed-source skip, and actual-create/simulated-checkpoint-loss refusal.
@@ -870,7 +879,7 @@ Do not add these historical, overlapping counts together.
 
 Missing evidence cannot pass. Cases that were never sent are NOT_RUN. A suite passes only with the selected cases, stable versions and restoration. Human wording approval remains a separate result.
 
-**Source linkage.** `source-linkage.json` captures 15 selected expressions, and the model definitions track prompts, schema and settings separately. Shared policy modules are inlined into runtime expressions and tested directly, rather than copying a complete production graph. The former mirrored main evaluator was retired because its routing and adapters could drift independently and made maintenance and test meaning ambiguous. Selected-expression coverage is not a hash of every executable feature and not continuous live-drift monitoring.
+**Source linkage.** `source-linkage.json` captures 16 selected expressions (14 in `main-workflow.json`, 1 in `get-order.json`, and 1 in `notify-order-status-error.json`), and the model definitions track prompts, schema and settings separately. Shared policy modules are inlined into runtime expressions and tested directly, rather than copying a complete production graph. The former mirrored main evaluator was retired because its routing and adapters could drift independently and made maintenance and test meaning ambiguous. Selected-expression coverage is not a hash of every executable feature and not continuous live-drift monitoring.
 
 ### Changing the system
 
@@ -882,8 +891,9 @@ For a future edit:
 
 | Kind of change | What to run |
 | --- | --- |
-| Selected-source audit | `node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json` |
+| Selected-source audit | `node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json` |
 | Portable recovery check | `node tests/check-recovery.js` in the client package |
+| Portable E2E harness check | `node tests/check-harness.js` in the client package |
 | Model changes | Targeted model-stage evaluation |
 | Graph, binding or business changes | Selected-candidate functional regression |
 | Reliability or write-boundary changes | Targeted negative and recovery tests |
@@ -968,7 +978,7 @@ Quotas and cost are driven by polling, model and token usage, Sheets reads, Gmai
 
 ### Handoff and growth
 
-Recipient deployment and a clean-room import remain untested. The [client package](../README.md) includes seven sanitized exports, synthetic data, SQL, procedures and test assets. The approved videos are separate, and public hosting is outside the handoff.
+Recipient deployment and a clean-room import remain untested. The [client package](../README.md) includes eight sanitized exports, synthetic data, SQL, procedures and test assets. The approved videos are separate, and public hosting is outside the handoff.
 
 A new destination must verify:
 
@@ -978,7 +988,7 @@ A new destination must verify:
 - the polling lifecycle, and
 - all integration effects.
 
-Possible growth work includes real-store connectors, stronger customer authentication, more supported languages, measured operations, payload-retention controls and reconciled automated recovery. All of it is proposed work that needs its own design and evidence; none of it is implemented.
+Possible growth work includes real-store connectors, stronger customer authentication, more supported languages, measured operations and payload-retention controls. All of it is proposed work that needs its own design and evidence; none of it is implemented.
 
 ## 11. Decisions, traceability and limits
 
@@ -993,7 +1003,7 @@ Possible growth work includes real-store connectors, stronger customer authentic
 | Shared validation/save/confirmation | Both providers and fixed templates pass one deterministic boundary; reduces policy drift, at cost of explicit context restoration |
 | Explicit fallback | Makes allowed operational error recovery and provider provenance visible. Blind retries/parse retries could hide bad output and multiply calls; underlying SDK behavior remains partly unverified |
 | Eight stacked horizontal swimlanes (`RecoveryLane`, `Stage 1`–`Stage 6`, `ErrorLane`) | Organizes the main workflow around the 6-step business pipeline with supervised recovery at the top and error retention at the bottom, while keeping single-workflow execution and all existing node names/IDs intact |
-| Manual recovery | Keeps uncertain external writes under inspection. Automatic stale-claim takeover/queue would need more reconciliation guarantees and is excluded |
+| Bounded automated & manual recovery | Automates transient self-healing (`find_recoverable_order_status_requests`, `max_attempts = 1`, 60s write-settle window, 10m zombie timeout, and `ReconcileUncertainDraft` across `thread.get` + `draft.getAll`) while parking ambiguous/exhausted cases in `NeedsInspection` for manual operator override |
 | Layered tests with independent evidence | Cheap direct policies, focused real model stages and actual-main service proof answer different questions. A full mirrored application graph was retired because it could drift |
 
 ### Traceability: requirement to enforcement to evidence
@@ -1007,7 +1017,7 @@ Possible growth work includes real-store connectors, stronger customer authentic
 | Bad generated text is withheld | checkGeneratedReply and saveGate | [Policy tests](testing-guide.md); incomplete natural-language guarantee |
 | No completed draft without saved identity/readback | Intent/saved checkpoints, verifiedDraft, label verification, CompleteLedger | [Recovery results](../README.md#tested-behavior); trim-only edits not detected |
 | Completed source never regenerated through claim | Completed key retention and AlreadyCompleted | Completed replay proof; storage reset/namespace change breaks assumption |
-| Uncertain write cannot authorize another create | recoveryDecision and recover SQL | Actual-create/simulated-checkpoint-loss proof; inspected adoption requires judgment |
+| Uncertain write cannot authorize another create without reconciliation | `recoveryDecision`, `reconcileThreadAndDrafts`, and `recover_order_status_request` SQL | Manual mode requires `inspectedDraftId` (`UncertainWriteNeedsInspection`); auto mode recreates from `record.intent` only when `thread.get` and `draft.getAll` both confirm 0 drafts and 0 post-source messages (`draft_absent_verified = true`) |
 | Customer replies remain unsent | Main has draft creation, no send operation | Export inspection and final ten cases; human can manually send afterward |
 | Test PASS requires actual candidate/evidence/restoration | Runner/observer and session record | [End-to-end package](testing-guide.md); human wording review separate |
 | Portable delivery has private bindings removed | Sanitized exports, rebinding guides, manifest | [Client package](../README.md); clean-room import still unverified |
@@ -1023,7 +1033,7 @@ The implemented guarantees apply to the trusted supplied workflow path, retained
 - intent recorded before create,
 - saved IDs recorded before readback,
 - verified labels before completion, and
-- refusal of uninspected uncertain creation.
+- refusal of uninspected uncertain creation (requiring either `inspectedDraftId` adoption in manual mode or verified 0-draft / 0-post-source-message thread reconciliation in auto mode).
 
 The tested limits are controlled synthetic accounts and data, the final ten functional cases, and the separate focused proofs described above. They do not cover every outage or every language output.
 
