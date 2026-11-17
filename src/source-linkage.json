@@ -74,7 +74,7 @@
       "module": "main-policy",
       "function": "resolveExtractedRequest",
       "node": "ResolveExtractedRequest",
-      "expression": "={{ (function resolveExtractedRequest(checked) {\n  const context = checked.source;\n  if (!checked.shape_valid) return {...context, route: 'review', reason: 'invalid_extraction'};\n  const value = checked.extraction;\n  const order_numbers = [...new Set(value.order_numbers)];\n  if (value.request_type !== 'order_update') return {...context, route: 'review', reason: value.reason || 'unsupported_request'};\n  if (order_numbers.length > 1) return {...context, route: 'review', reason: 'multiple_orders'};\n  return {...context, order_numbers, order_number: order_numbers[0] || null,\n    route: order_numbers.length ? 'lookup' : 'missing', reason: value.reason};\n})($('ValidateExtractionShape').item.json) }}"
+      "expression": "={{ (function resolveExtractedRequest(checked) {\n  const context = checked.source;\n  if (!checked.shape_valid) return {...context, route: 'review', reason: 'invalid_extraction'};\n  const value = checked.extraction;\n  const order_numbers = [...new Set(value.order_numbers)];\n  if (order_numbers.length > 1) return {...context, route: 'review', reason: 'multiple_orders'};\n  if (value.request_type !== 'order_update') return {...context, route: 'review', reason: value.reason || 'unsupported_request'};\n  return {...context, order_numbers, order_number: order_numbers[0] || null,\n    route: order_numbers.length ? 'lookup' : 'missing', reason: value.reason};\n})($('ValidateExtractionShape').item.json) }}"
     },
     {
       "module": "main-policy",

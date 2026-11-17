@@ -91,7 +91,7 @@ flowchart LR
   subgraph DB["Supabase PostgreSQL boundary"]
     L["Dedicated application ledger"]
   end
-  C -->|"SMTP / Gmail delivery"| G
+  C -->|"Gmail delivery"| G
   O -->|"admit, inspect, manually send"| G
   O -->|"configure / recover / test"| M
   M <-->|"OAuth HTTPS"| G
@@ -115,7 +115,7 @@ All seven delivered exports are inactive and stripped of credentials. The inacti
 | [EvaluateOrderStatusModels](../workflows/harness/evaluation-workflow.json) | Native Evaluation Trigger rows → select extraction/drafting stage and record scored result | Groq API; separate evaluation Data Table | Optional testing, inactive/unpublished; no Gmail or Orders path |
 | [RunOrderStatusRegressionTest](../workflows/harness/run-order-status-regression.json) | Manual configured mode → readiness, session ownership, fixture dispatch, observation, restoration → SuiteResults and session row | n8n API, receiver Gmail OAuth2, read-only Sheets OAuth2, sessions Data Table; GetOrder, observer and Sender | Optional test orchestrator; may temporarily start selected main; stays inactive between runs |
 | [ObserveOrderStatusCase](../workflows/harness/observe-order-status-case.json) | Typed `state` object → read actual source/thread and main/child execution evidence → `{result}` | Gmail OAuth2 and n8n API | Published callable read-only evidence helper; no business-route implementation |
-| [Sender](../workflows/harness/sender-callable.json) | Typed `subject`, `body`, `senderMode`, or manual fixture → exactly one selected delivery path → acceptance receipt | SMTP customer credential or receiver Gmail OAuth2 | Published callable test dependency; manual entry also available; no autonomous trigger |
+| [Sender](../workflows/harness/sender-callable.json) | Typed `subject`, `body`, `senderMode`, or manual fixture → exactly one selected delivery path → acceptance receipt | Customer Gmail OAuth2 or receiver Gmail OAuth2 | Published callable test dependency; manual entry also available; no autonomous trigger |
 
 The recipient package runs from sanitized exports and self-contained test assets. Build generators are not runtime dependencies, and they are neither required nor included. The source n8n application version and the destination's importer behavior are unverified. Supabase hosts the ledger only — not the Orders sheet, n8n internals or the test Data Tables.
 
@@ -184,21 +184,20 @@ Read this as a logical data-flow diagram, not an exact node graph. Fallback arro
 
 ### Canvas phases
 
-The canvas has nine numbered phase notes, **00–08**. The verified main has 104 nodes, counting those notes.
+The main canvas is organized into **8 stacked horizontal swimlanes** (`115` total nodes: `107` functional nodes plus `8` swimlane sticky notes): **`RecoveryLane`** at the top, **`Stage 1`–`Stage 6`** stacked top-to-bottom for the business-outcome pipeline (each with its main spine above tiered guards/fallbacks), and **`ErrorLane`** at the bottom.
 
-| Phase | Responsibility |
+| Swimlane | Responsibility |
 | --- | --- |
-| **00 Supervised recovery** | Read source, ledger and execution evidence, then reconcile |
-| **01 Claim the source** | Authenticate and atomically acquire ownership |
-| **02 Validate request** | Build stable context and validate input |
-| **03 Extract and route** | Share schema and business resolution across providers |
-| **04 Resolve order** | Exact lookup and sender consistency |
-| **05 Prepare reply** | Model or fixed text, plus checks |
-| **06 Save and confirm** | Recipient gate, intent, creation, saved IDs and readback |
-| **07 Finish source labels** | Label verification and ledger completion |
-| **08 Retain unfinished work** | Record a handled failure and stop |
+| **`RecoveryLane` (Supervised recovery & resume)** | Read source, ledger and execution evidence, reconcile uncertain drafts, transfer ownership, and resume at the recorded phase |
+| **`Stage 1` — Receive inquiry** | Authenticate mailbox/source, acquire atomic PostgreSQL ownership, and route resumed phases |
+| **`Stage 2` — Classify & extract** | Clean question, validate input/sender, extract and route order intent across Groq and OpenRouter |
+| **`Stage 3` — Lookup order** | Exact deterministic lookup via `GetOrder` and sender ownership check |
+| **`Stage 4` — Prepare reply** | Fixed clarification templates, Groq/OpenRouter verified reply drafting, and deterministic text checks |
+| **`Stage 5` — Save Gmail draft** | Recheck recipient, record intent, create draft, checkpoint returned IDs, and readback-confirm |
+| **`Stage 6` — Triage source email** | Apply and verify `triaged` / `needs-review` labels, then complete the ledger |
+| **`ErrorLane` — Retain unfinished work & alert** | Record post-claim failures (`NeedsRecovery` / `NeedsInspection`), suppress first transient auto-recovery alerts, or stop visibly |
 
-Older six-phase counts do not describe this final canvas. The expanded swimlanes were kept on purpose, and a native top-level-box warning remains.
+Earlier nine-phase (`00`–`08`) and six-phase canvas layouts were superseded by this 8-swimlane layout (`RecoveryLane`, `Stage 1`–`Stage 6`, and `ErrorLane`); the underlying functional nodes, IDs, and connections remain unchanged.
 
 ### Intake
 
@@ -321,7 +320,7 @@ The Orders sheet, columns A:F, must have exactly these headers. Import the synth
 | `tracking_number` | String trimmed or null/blank → null; numeric values invalid |
 | `estimated_delivery` | String trimmed or null/blank → null; when present, real Gregorian `YYYY-MM-DD`, year ≥1, valid month/day/leap-year; numeric serial invalid |
 
-**How GetOrder works.** `GetOrder` takes `{"order_number":"1001"}` as a typed string. `ReadAllOrders` reads A:F, all rows, with `returnFirstMatch:false` and unformatted values/date serials. An expression then selects the rows whose **string** order_number, trimmed, equals the request, and calls `validateOrder`. There is no fuzzy matching and no model-selected row.
+**How GetOrder works.** `GetOrder` takes `{"order_number":"1001"}` as a typed string. `GetOrderConfig` supplies the spreadsheet ID and numeric tab GID (`spreadsheetId`, `sheetGid`), and `ReadAllOrders` reads A:F, all rows, with `returnFirstMatch:false` and unformatted values/date serials. An expression then selects the rows whose **string** order_number, trimmed, equals the request, and calls `validateOrder`. There is no fuzzy matching and no model-selected row.
 
 One caveat: a numeric order cell is not a selected match, so it can produce `not_found`. Do not describe the validator as guaranteed to report `invalid_data` for every malformed row.
 
@@ -360,7 +359,7 @@ The schema sets `additionalProperties:false`. The later `validateExtractionShape
 
 - Routes are `extract`, `lookup`, `missing`, `unknown`, `draft`, `save` and `review`, plus the classifier routes `fallback` and `fatal`.
 - Reasons include `invalid_recipient`, `empty_input`, `invalid_extraction`, `multiple_orders`, `duplicate_order`, `invalid_order_data`, `sender_mismatch`, `draft_check_failed`, `model_provider_failure` and `unexpected_model_error`.
-- Unsupported extraction can keep its nonempty model-provided reason, so reasons are not a fixed machine enum.
+- Distinct multi-order requests (`order_numbers.length > 1`) take precedence and normalize to `multiple_orders`, while single-order or zero-order unsupported extractions keep their nonempty model-provided reason, so reasons are not a fixed machine enum.
 - Failed draft checks are an array drawn from `empty_reply`, `missing_tracking` and `url_detected`. Rejected text has `reply_body:null`.
 - Invalid lookup contracts throw; they do not return a business route.
 
@@ -479,7 +478,7 @@ Manual override fields default to blank or `false`, so manual execution is delib
 
 **Sender.** Takes the strings `subject`, `body` and `senderMode`.
 
-- `senderMode` is exactly `customer` (SMTP) or `self` (receiver Gmail). One switch selects exactly one path.
+- `senderMode` is exactly `customer` (customer Gmail) or `self` (receiver Gmail). One switch selects exactly one path.
 - `subject` must match `^OSRD SMOKE [A-Za-z ]+$` and be ≤180 characters.
 - `body` must be nonempty after trimming and ≤4,000 characters.
 - Validation failure stops before anything is sent.
@@ -565,7 +564,7 @@ All ledger access flows through five `SECURITY INVOKER` functions in [`database/
    - On `action = 'failure'`, sets `status = 'NeedsInspection'` when `inspection = 'true'` **or** `recovery_attempts >= 1`; otherwise (when `recovery_attempts = 0` on a first-time operational failure, including `DraftIntentRecorded` create/checkpoint timeouts) sets `status = 'NeedsRecovery'`.
    - Allows `DraftIntentRecorded → DraftIntentRecorded` during recreate-from-intent recovery **only** when `r.intent` equals `p->'intent'`, raising `DraftIntentImmutableConflict` if the intent payload differs.
    - An unknown or error checkpoint response stops the caller and never authorizes a Gmail write.
-3. **`quarantine_order_status_request(jsonb)` — Minimal-CAS pre-transfer quarantine.** Locks the row `FOR UPDATE` by `(mailbox, source_message_id)` when Phase `00` detects a permanent or unrecoverable pre-transfer error (missing source email, post-source message in thread, multiple/inconsistent drafts, version mismatch in `auto` mode, zombie/missing execution, or exhausted auto-recovery attempts after a crash).
+3. **`quarantine_order_status_request(jsonb)` — Minimal-CAS pre-transfer quarantine.** Locks the row `FOR UPDATE` by `(mailbox, source_message_id)` when `RecoveryLane` detects a permanent or unrecoverable pre-transfer error (missing source email, post-source message in thread, multiple/inconsistent drafts, version mismatch in `auto` mode, zombie/missing execution, or exhausted auto-recovery attempts after a crash).
    - Returns `AlreadyCompleted` (`quarantined: false`) if `phase = 'Completed'` or `AlreadyQuarantined` (`quarantined: false`) if `status = 'NeedsInspection'`.
    - Enforces a minimal 2-field CAS check on `expected_owner` and optional `expected_phase`, returning `OwnershipConflict` (`quarantined: false`) if concurrent ownership moved.
    - Otherwise sets `status = 'NeedsInspection'`, records the truncated reason in `last_error`, appends a quarantine entry to `recovery.history`, and returns `{ quarantined: true, result: "Quarantined", record }`.
@@ -574,7 +573,7 @@ All ledger access flows through five `SECURITY INVOKER` functions in [`database/
    - Requires verified `old_execution_stopped`, `writes_settled`, and a non-empty `note`.
    - For `DraftIntentRecorded`, accepts either the **adopt path** (`draft_verified = 'true'` with non-empty `draft_id` and `draft_message_id`, advancing `phase` to `DraftSaved`) or the **recreate-from-intent path** (`draft_absent_verified = 'true'` with non-null `r.intent`, keeping `phase = 'DraftIntentRecorded'`).
    - Increments `recovery_attempts = r.recovery_attempts + 1`, sets `status = 'Running'` under the new `owner_token`, and appends the transfer record to `recovery.history`.
-5. **`find_recoverable_order_status_requests(jsonb)` — Pure read-only candidate discovery.** Executes a pure `SELECT` (no row mutations in SQL) returning up to `limit` (default `5`, clamped `1..25`) rows for `mailbox` where `phase <> 'Completed'`, `status IN ('NeedsRecovery', 'Running')`, `(status = 'Running' OR recovery_attempts < 1)`, and `updated_at <= now() - cooldown_seconds` (default `300` seconds / 5 minutes, minimum floor `90` seconds), ordered by `updated_at ASC`. Including stale `Running` rows with `recovery_attempts >= 1` allows Phase `00` to check their n8n execution liveness before quarantining a crashed auto-retry.
+5. **`find_recoverable_order_status_requests(jsonb)` — Pure read-only candidate discovery.** Executes a pure `SELECT` (no row mutations in SQL) returning up to `limit` (default `5`, clamped `1..25`) rows for `mailbox` where `phase <> 'Completed'`, `status IN ('NeedsRecovery', 'Running')`, `(status = 'Running' OR recovery_attempts < 1)`, and `updated_at <= now() - cooldown_seconds` (default `300` seconds / 5 minutes, minimum floor `90` seconds), ordered by `updated_at ASC`. Including stale `Running` rows with `recovery_attempts >= 1` allows `RecoveryLane` to check their n8n execution liveness before quarantining a crashed auto-retry.
 
 ```mermaid
 stateDiagram-v2
@@ -649,7 +648,7 @@ Keeping completed keys is part of correctness. Deleting them, recreating the tab
 - Otherwise, when `recovery_attempts = 0` on a first-time operational failure (including `DraftIntentRecorded` create or checkpoint timeouts), PostgreSQL sets `status = 'NeedsRecovery'`.
 - **Alerting Boundary (`NeedsImmediateAlert`):**
   - If `RecordUnfinishedWork` succeeds and returns `status = 'NeedsRecovery'`, `NeedsImmediateAlert` routes to `ReturnQueuedForAutoRecovery` (**quiet exit**, no exception thrown). This prevents false-alarm error notifications for first-time transient blips that will be self-healed by the 5-minute sweeper.
-  - If `RecordUnfinishedWork` returns `status = 'NeedsInspection'`—or if `RecordUnfinishedWork` itself errors or is reached from a pre-claim outage—execution routes to `StopVisiblyWithoutTriage` (**visible failure**, throwing a structured error). Likewise, Phase `00` pre-transfer quarantines (`QuarantineRecoveryRequest` → `QuarantineApplied`) route to `StopVisiblyWithoutTriage` **exactly once** when `quarantined === true`, and exit quietly via `ReturnQuarantineSkipped` if already quarantined/completed or on a benign CAS conflict.
+  - If `RecordUnfinishedWork` returns `status = 'NeedsInspection'`—or if `RecordUnfinishedWork` itself errors or is reached from a pre-claim outage—execution routes to `StopVisiblyWithoutTriage` (**visible failure**, throwing a structured error). Likewise, `RecoveryLane` pre-transfer quarantines (`QuarantineRecoveryRequest` → `QuarantineApplied`) route to `StopVisiblyWithoutTriage` **exactly once** when `quarantined === true`, and exit quietly via `ReturnQuarantineSkipped` if already quarantined/completed or on a benign CAS conflict.
 
 | Detection / failure | Durable state when available | Possible external effect | Safe next action; blind action prohibited |
 | --- | --- | --- | --- |
@@ -658,10 +657,10 @@ Keeping completed keys is part of correctness. Deleting them, recreating the tab
 | Invalid sender/input, unsupported/multiple request, duplicate/invalid selected row, sender mismatch, invalid extraction/text | Review LabelsPending → Completed if labels verified | Review labels; no draft | Human review; not an outage retry |
 | Sheets/provider operational failure without successful fallback; invalid lookup contract | `Processing` with `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Reads/model calls may have occurred | 1st failure exits quietly via `ReturnQueuedForAutoRecovery` for auto-sweep; 2nd failure quarantines and fails visibly |
 | Intent/checkpoint failure | Last durable phase; response may be uncertain | No subsequent create authorized | Queues for auto-recovery (`attempts = 0`) or quarantines (`attempts >= 1`); never continue from local assumptions |
-| Draft create error or missing returned-ID checkpoint | `DraftIntentRecorded`; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Draft may or may not exist in Gmail | Phase `00` reconciles via `ReadRecoveryThread` + `ListMailboxDrafts` + `ReconcileUncertainDraft`; never blindly create without thread/draft verification |
+| Draft create error or missing returned-ID checkpoint | `DraftIntentRecorded`; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Draft may or may not exist in Gmail | `RecoveryLane` reconciles via `ReadRecoveryThread` + `ListMailboxDrafts` + `ReconcileUncertainDraft`; never blindly create without thread/draft verification |
 | Saved draft read/confirmation failure | `DraftSaved`, or saved draft `LabelsPending`; `NeedsInspection` on mismatch | Existing draft remains | Verify retained draft and IDs; no regeneration/overwrite |
 | Label write/read/verification or final checkpoint failure | `LabelsPending` if reached; `NeedsRecovery` (`attempts = 0`) or `NeedsInspection` (`attempts >= 1`) | Some/all labels may already exist | Auto-sweeper or manual recovery re-reads source/draft and finishes same outcome after CAS transfer |
-| Cancellation, process crash, instance outage | Last phase, possibly still `Running` | Any already issued request may settle later | Sweeper selects stale `Running` rows after 5m cooldown; Phase `00` enforces terminal check + 60s settle window (or 10m zombie quarantine) |
+| Cancellation, process crash, instance outage | Last phase, possibly still `Running` | Any already issued request may settle later | Sweeper selects stale `Running` rows after 5m cooldown; `RecoveryLane` enforces terminal check + 60s settle window (or 10m zombie quarantine) |
 | Observer API/setup/missing evidence, runner restoration failure | Test session error/active state; application ledger remains independent | Fixtures/main startup may already have happened | Inspect session and restore main; remaining cases NOT_RUN, no resend or false PASS |
 
 ### Stateless error alerting (`NotifyOrderStatusError`)
@@ -677,7 +676,7 @@ When a workflow execution terminates in an unhandled error or reaches a visible 
 | **Infrastructure / Integration Failure** | `trigger_failure` | `trigger` object present without `execution` (pre-execution polling failure) | No ledger row; re-authenticate or repair Gmail / Schedule trigger credential |
 | **Infrastructure / Integration Failure** | `recovery_sweep_failed` | Failing workflow is `RecoverOrderStatusRequest` (sweeper DB outage or `VerifySweepBatchOutcome` rollup) | Inspect linked execution or candidate `source_message_id` / `owner_token` if present; verify Postgres connectivity |
 | **Infrastructure / Integration Failure** | `pre_claim_or_unhandled` | Execution failed without an attached ledger `record` (e.g., `ReadMailboxIdentity`, `ClaimSourceAtomically`, or unapplied checkpoint/quarantine) | No owned ledger transition; verify Gmail OAuth2 and Postgres credentials so untriaged messages can be polled |
-| **Ledger `status = 'NeedsInspection'`** | `quarantined_needs_inspection` | Phase `00` `QuarantineRecoveryRequest` applied (`parsed.quarantined === true`) | Row parked in `status = 'NeedsInspection'`; inspect ledger row, Gmail thread/drafts, and run manual recovery |
+| **Ledger `status = 'NeedsInspection'`** | `quarantined_needs_inspection` | `RecoveryLane` `QuarantineRecoveryRequest` applied (`parsed.quarantined === true`) | Row parked in `status = 'NeedsInspection'`; inspect ledger row, Gmail thread/drafts, and run manual recovery |
 | **Ledger `status = 'NeedsInspection'`** | `post_claim_needs_inspection` | Owned ledger `record` present after post-claim failure (`recovery_attempts >= 1`, content/recipient mismatch, or unexpected stop) | Row parked in `status = 'NeedsInspection'`; inspect phase (`Processing`, `DraftIntentRecorded`, `DraftSaved`, `LabelsPending`) and run manual recovery |
 
 ### How automated and manual recovery proceed
@@ -686,8 +685,8 @@ When a workflow execution terminates in an unhandled error or reaches a visible 
 - **Automated sweep (`mode = 'auto'`):** `ScheduleRecoverySweep` triggers every 5 minutes, reads centralized config from `SelectUnresolvedRequest` (`receiverEmail`, `cooldownSeconds: 300`, `batchLimit: 5`, `settleWindowMs: 60000`), and calls `FindRecoverableRequests` (`find_recoverable_order_status_requests`). `BuildAutoRecoveryRequests` constructs `{ mode: "auto", sourceMessageId, expectedOwnerToken, settleWindowMs }` for each candidate row and invokes `RecoverThroughMain` (`onError: "continueErrorOutput"`). If any item in the batch fails visibly, `VerifySweepBatchOutcome` re-throws the error after the batch completes.
 - **Manual override (`mode = 'manual'`):** An operator triggers `StartRecovery` with explicit `sourceMessageId`, `expectedOwnerToken`, `writesSettled: true`, `note`, optional `acceptChangedVersion`, and optional `inspectedDraftId` in `SelectUnresolvedRequest`, routing through `RouteRecoveryMode` to the shared `RecoverThroughMain` node. Manual mode is unrestricted by `recovery_attempts` and is used to recover `NeedsInspection` rows after human inspection.
 
-**Step 2 — Gather evidence and enforce liveness/settle gates (`Phase 00`).**
-All external read nodes in Phase `00` (`ReadRecoverySource`, `ReadPreviousExecution`, `ReadRecoveryThread`, `ListMailboxDrafts`, and `ReadInspectedDraft`) use `onError: "continueErrorOutput"` so external API errors are caught and routed deterministically:
+**Step 2 — Gather evidence and enforce liveness/settle gates (`RecoveryLane`).**
+All external read nodes in `RecoveryLane` (`ReadRecoverySource`, `ReadPreviousExecution`, `ReadRecoveryThread`, `ListMailboxDrafts`, and `ReadInspectedDraft`) use `onError: "continueErrorOutput"` so external API errors are caught and routed deterministically:
 - `ReadRecoverySource` and `VerifyMailboxAndSource` confirm the live Gmail source message and authenticated receiver profile. A `404` or source read failure (`SourceReadFailedNeedsInspection`), source/thread mismatch (`SourceMismatchNeedsInspection`), or unaccepted `CandidateVersionMismatch` in `auto` mode routes to `PrepareQuarantineRequest` → `QuarantineRecoveryRequest`.
 - `ReadPreviousExecution` and `VerifyPreviousExecutionStopped` (`stoppedExecution`) verify the prior execution via the n8n API:
   - Missing (`404`) or mismatched workflow/execution identity $\rightarrow$ `PreviousExecutionMissingOrMismatchNeedsInspection` (quarantine).
@@ -697,7 +696,7 @@ All external read nodes in Phase `00` (`ReadRecoverySource`, `ReadPreviousExecut
   - Terminal in `auto` mode with `nowMs - Date.parse(stoppedAt) < settleWindowMs` (`60000` ms default, `30000` ms floor) $\rightarrow$ `WriteSettlePending` (clean deferral).
   - Terminal and settled $\ge 60$ seconds $\rightarrow$ sets `writesSettled: true` and auto-generates the audit `note`.
 
-**Step 3 — Multi-turn safe `DraftIntentRecorded` reconciliation (`Phase 00`).**
+**Step 3 — Multi-turn safe `DraftIntentRecorded` reconciliation (`RecoveryLane`).**
 When `record.phase === 'DraftIntentRecorded'` and no manual `inspectedDraftId` was pre-supplied (`InspectedDraftRequired` branch `reconcile`), main executes `ReadRecoveryThread` (`thread.get`), `ListMailboxDrafts` (`draft.getAll` with `returnAll: true` and `alwaysOutputData: true`), and `ReconcileUncertainDraft` (`reconcileThreadAndDrafts` with `executeOnce: true`):
 1. **Multi-turn post-source slice:** Finds `sourceIndex = thread.messages.findIndex(m => m.id === record.source_message_id)`. Earlier `SENT` replies at indices `< sourceIndex` from prior conversation turns are ignored. Any non-`DRAFT` message at index `> sourceIndex` means a reply was already sent or a newer customer follow-up arrived $\rightarrow$ **Case C quarantine (`SentOrNewerMessageAfterSourceNeedsInspection`)**.
 2. **Thread vs. mailbox draft cross-check:** Compares `DRAFT` messages in `thread.messages` against drafts for `record.thread_id` in `ListMailboxDrafts`:
@@ -716,7 +715,7 @@ When `record.phase === 'DraftIntentRecorded'` and no manual `inspectedDraftId` w
 ```mermaid
 sequenceDiagram
   participant S as RecoverOrderStatusRequest
-  participant M as Main (Phase 00)
+  participant M as Main (RecoveryLane)
   participant N as n8n Execution API
   participant G as Gmail API
   participant P as PostgreSQL Ledger
@@ -789,7 +788,7 @@ Matching email strings is not strong customer authentication. It does not show c
 
 ### Credentials and access
 
-Gmail/Sheets OAuth, provider API keys, SMTP and n8n API/Postgres access all live in n8n credentials. Tokens never appear in text parameters. Rebind and inspect every credentialed node; a matching credential display name does not prove it is the right account.
+Gmail/Sheets OAuth, provider API keys, and n8n API/Postgres access all live in n8n credentials. Tokens never appear in text parameters. Rebind and inspect every credentialed node; a matching credential display name does not prove it is the right account.
 
 - Main needs draft, thread/draft-list, label and profile operations, plus Postgres ledger access and n8n API previous-execution reads.
 - The child (`GetOrder`) needs order reads.
@@ -993,7 +992,7 @@ Possible growth work includes real-store connectors, stronger customer authentic
 | PostgreSQL ledger | Uniqueness and conditional row updates arbitrate overlapping source work. A lookup-then-insert/Data Table approximation would not establish the same exclusion; adds installation/private data obligations |
 | Shared validation/save/confirmation | Both providers and fixed templates pass one deterministic boundary; reduces policy drift, at cost of explicit context restoration |
 | Explicit fallback | Makes allowed operational error recovery and provider provenance visible. Blind retries/parse retries could hide bad output and multiply calls; underlying SDK behavior remains partly unverified |
-| Nine phase swimlanes | Helps the owner follow ownership through business work to completion/recovery. Expanded canvas is larger and retains a top-level-box warning |
+| Eight stacked horizontal swimlanes (`RecoveryLane`, `Stage 1`–`Stage 6`, `ErrorLane`) | Organizes the main workflow around the 6-step business pipeline with supervised recovery at the top and error retention at the bottom, while keeping single-workflow execution and all existing node names/IDs intact |
 | Manual recovery | Keeps uncertain external writes under inspection. Automatic stale-claim takeover/queue would need more reconciliation guarantees and is excluded |
 | Layered tests with independent evidence | Cheap direct policies, focused real model stages and actual-main service proof answer different questions. A full mirrored application graph was retired because it could drift |
 

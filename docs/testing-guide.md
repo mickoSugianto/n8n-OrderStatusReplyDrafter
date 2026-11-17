@@ -23,11 +23,13 @@ Or run each suite individually:
 node tests/run-regression.js
 node tests/check-recovery.js
 node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json
+node tests/check-harness.js
 ```
 
-- `tests/run-regression.js` executes **261 deterministic unit/policy cases** (78 order-validator cases + 168 intake/extraction/lookup/draft/save/error-classification cases + 15 error-alert formatting/redaction cases) and **3 static audits**.
-- `tests/check-recovery.js` executes **74 focused offline recovery, guard, and snapshot checks**.
+- `tests/run-regression.js` executes **264 deterministic unit/policy cases** (78 order-validator cases + 171 intake/extraction/lookup/draft/save/error-classification cases + 15 error-alert formatting/redaction cases) and **3 static audits**.
+- `tests/check-recovery.js` executes **75 focused offline recovery, guard, and snapshot checks**.
 - `tests/check-source-linkage.js` verifies that **16 inline runtime expressions** and **both model stage prompts/schemas/settings** inside `workflows/main-workflow.json`, `workflows/get-order.json`, and `workflows/notify-order-status-error.json` match the shared policy libraries in `src/`.
+- `tests/check-harness.js` verifies structural, expression, safety-gate, Data Table `resourceMapper` column-mapping/filter, and swimlane-layout invariants across `workflows/harness/run-order-status-regression.json`, `workflows/harness/observe-order-status-case.json`, `workflows/harness/sender-callable.json`, and `workflows/harness/evaluation-workflow.json` (including `RecordCaseById` Data Table mappings).
 
 ### Key Source & Test Files
 
@@ -37,28 +39,28 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 | `src/recovery-policy.js` | Recovery decision helpers and ownership guard logic |
 | `src/error-policy.js` | Error alert classification, strict allowlist parsing, and Slack sanitization (`formatErrorAlert()`, `sanitizeReason()`, `escapeSlack()`) |
 | `src/source-linkage.json` & `src/model-definitions.json` | Expected expression hashes and model prompt/schema/parameter baselines |
-| `tests/fixtures/policy-cases.json` & `tests/fixtures/order-fixtures.js` | Independent test fixtures for the 261 policy/validator cases |
+| `tests/fixtures/policy-cases.json` & `tests/fixtures/order-fixtures.js` | Independent test fixtures for the 264 policy/validator cases |
 | `tests/fixtures/evaluation-cases.json` & `tests/fixtures/dataset-rows.js` | Model-stage evaluation cases and CSV dataset generator |
 | `tests/fixtures/e2e-cases.json` | End-to-end scenario definitions (`S01`–`S10`) |
 
 ### Tier 1 Verification Breakdown (`npm test`)
 
-#### Layer 1: Unit & Policy Logic (`tests/run-regression.js` — 261 logic cases + 3 static audits)
+#### Layer 1: Unit & Policy Logic (`tests/run-regression.js` — 264 logic cases + 3 static audits)
 
 | Sub-Suite & Functions (`src/`) | Exact Cases | n8n Node Name(s) | Input | Output | Edge Cases Verified |
 | :--- | :---: | :--- | :--- | :--- | :--- |
 | **Order Validator**<br>[`validateOrder()`](../src/validate-order.js) | **78** | `ReturnGetOrderContract`<br>*(in `get-order.json`)* | • Requested `order_number`<br>• Array of matched spreadsheet `rows` | `{ lookup_status: 'found' \| 'not_found' \| 'duplicate' \| 'invalid_data', order: {...} \| null, invalid_fields?: [...] }` | • **Cardinality:** 0 rows (`not_found`), >1 rows (`duplicate`).<br>• **Order formatting:** Non-digit strings, leading zeros, mismatched IDs.<br>• **Field types:** Missing, blank, null, number, boolean, object, or array values.<br>• **Calendar math:** Invalid formats, invalid months (`13`, `00`), invalid days (`32`, `00`, `2026-04-31`), and **leap years** (`2026-02-29` & `1900-02-29` rejected vs `2024-02-29` & `2000-02-29` accepted).<br>• **Status whitelist:** Only `processing`, `shipped`, `delivered`.<br>• **RFC email:** Dot-atom local part ≤ 64 chars, domain labels ≤ 63 chars, total ≤ 254. |
 | **Intake & Sanitization**<br>[`intake()`](../src/main-policy.js) *(18)*<br>`prepareSourceContext()` *(2)*<br>`cleanCustomerQuestion()` *(1)*<br>`validateRequestInput()` *(3)* | **24** | • `PrepareSourceContext`<br>• `CleanCustomerQuestion`<br>• `ValidateRequestInput`<br>*(in `main-workflow.json`)* | • Raw Gmail `message` object<br>• Sender `allowlist` | `{ ...source, cleaned_question, recipient, route: 'extract' \| 'review', reason }` | • Missing or non-string `message_id` / `thread_id` throws `missing_source_context`.<br>• **Quote stripping:** Strips lines starting with `>` so the LLM only processes new customer text.<br>• **Sender validation:** Missing `from`, multiple senders, invalid RFC email, or sender not in `allowlist` → routes to `'review'` (`invalid_recipient`).<br>• Empty body after quote stripping → routes to `'review'` (`empty_input`). |
-| **LLM Extraction Validation**<br>`extraction()` *(18)*<br>`validateExtractionShape()` *(6)*<br>`resolveExtractedRequest()` *(3)* | **27** | • `ValidateExtractionShape`<br>• `ResolveExtractedRequest`<br>*(in `main-workflow.json`)* | • `source` context<br>• LLM `response` (`{ output }`)<br>• `provider` (`groq` \| `openrouter`) | `{ ...source, order_numbers, order_number, route: 'lookup' \| 'missing' \| 'review', reason }` | • **Schema validation:** Null output, arrays, missing `request_type`, or non-digit `order_numbers` → routes to `'review'` (`invalid_extraction`).<br>• **Deduplication & Multiple orders:** Deduplicates identical numbers; if >1 distinct orders remain → routes to `'review'` (`multiple_orders`).<br>• Non-status intent (`manual_review`) routes to `'review'`.<br>• 0 order numbers with `order_update` intent routes to `'missing'`. |
+| **LLM Extraction Validation**<br>`extraction()` *(19)*<br>`validateExtractionShape()` *(6)*<br>`resolveExtractedRequest()` *(5)* | **30** | • `ValidateExtractionShape`<br>• `ResolveExtractedRequest`<br>*(in `main-workflow.json`)* | • `source` context<br>• LLM `response` (`{ output }`)<br>• `provider` (`groq` \| `openrouter`) | `{ ...source, order_numbers, order_number, route: 'lookup' \| 'missing' \| 'review', reason }` | • **Schema validation:** Null output, arrays, missing `request_type`, or non-digit `order_numbers` → routes to `'review'` (`invalid_extraction`).<br>• **Deduplication & Multiple orders:** Deduplicates identical numbers; if >1 distinct orders remain, always routes to `'review'` (`multiple_orders`) regardless of `request_type`, before single/zero-order `manual_review` passes through `value.reason \|\| 'unsupported_request'`.<br>• Non-status intent (`manual_review`) with ≤1 distinct order routes to `'review'`.<br>• 0 order numbers with `order_update` intent routes to `'missing'`. |
 | **Lookup Resolution**<br>`lookup()` *(65)*<br>`validateLookupResult()` *(10)*<br>`resolveOrderRequest()` *(5)* | **80** | • `ValidateLookupResult`<br>• `ResolveOrderRequest`<br>*(in `main-workflow.json`)* | • `source` context<br>• Subworkflow `result` (`{ lookup_status, order }`) | `{ ...source, order, route: 'draft' \| 'unknown' \| 'review', reason }` | • **Contract checks:** Null/array result or unknown `lookup_status` throws `invalid_lookup_contract`.<br>• **Unverified fact leak:** Non-null `order` when `lookup_status !== 'found'` throws `lookup_exposed_unverified_facts`.<br>• **Ownership check:** `order.customer_email` ≠ `source.recipient` → routes to `'review'` (`sender_mismatch`).<br>• `duplicate` or `invalid_data` routes to `'review'`; `not_found` routes to `'unknown'`. |
 | **Reply Safety Guard**<br>`draftCheck()` *(6)*<br>`checkGeneratedReply()` *(10)* | **16** | `CheckGeneratedReply`<br>*(in `main-workflow.json`)* | • `source` context (with `order`)<br>• Generated reply `text`<br>• `provider` | `{ ...source, reply_body, route: 'save' \| 'review', reason, failed_checks: [...] }` | • **Empty reply:** Null, non-string, or whitespace-only text → `empty_reply`.<br>• **Hallucinated URLs:** Rejects any reply containing `http` or `www.` → `url_detected`.<br>• **Missing tracking:** Order has `tracking_number` but reply omits it → `missing_tracking`.<br>• Any failed check clears `reply_body: null` and routes to `'review'`. |
 | **Recipient Save Gate**<br>`saveGate()` *(5)* | **5** | `RecheckAllowedRecipient`<br>*(in `main-workflow.json`)* | • `source` context<br>• `[customerEmail, receiverEmail]` | `source` or `{ ...source, reply_body: null, route: 'review', reason: 'invalid_recipient' }` | • Rejects null recipient, un-normalized uppercase address, or recipient not in allowlist immediately before Gmail draft creation. |
 | **Draft Confirmation**<br>`confirmDraft()` *(12)* | **12** | `ConfirmSavedDraft`<br>*(in `main-workflow.json`)* | • `source` context<br>• `saved` draft response<br>• `readback` Gmail draft | `{ ...source, draft_id, draft_message_id, draft_confirmed: true }` or `{ route: 'fatal', draft_confirmed: false }` | • **Readback verification:** Fails if `saved.id`, `message.id`, or `threadId` is missing or mismatches `readback`.<br>• Fails if `subject` or trimmed `text` was altered.<br>• Fails if `readback.to.value` has ≠ 1 recipient or mismatches `source.recipient`. |
 | **Model Error Classifier**<br>`modelError()` *(4)* | **4** | • `ClassifyExtractGroqError`<br>• `ClassifyExtractOpenRouterError`<br>• `ClassifyDraftGroqError`<br>• `ClassifyDraftOpenRouterError` | • `source` context<br>• `failure` object<br>• `stage` & `provider` | `{ ...source, route: 'fallback' \| 'review' \| 'fatal', reason, failed_stage, failed_provider, provider_error }` | • JSON schema / parser errors → routes to `'review'` (`invalid_extraction`).<br>• HTTP `401/403/408/429/500/502/503/504`, timeouts, rate limits, or unavailable model on `groq` → routes to `'fallback'` (`model_provider_failure`).<br>• Operational errors on fallback provider (`openrouter`) or unknown errors → `'fatal'`. |
 | **Error Alert Policy**<br>[`formatErrorAlert()`](../src/error-policy.js), `sanitizeReason()`, `escapeSlack()` *(15)* | **15** | `ParseErrorToSlackAlert`<br>*(in `notify-order-status-error.json`)* | • Raw n8n `Error Trigger` or `ReceiveAlertRequest` payload (`$json`) | `{ classification, reason, workflow_name, execution_id, execution_url, failed_node, source_message_id, thread_id, phase, status, outcome, recovery_attempts, owner_token, draft_id, slack_text }` | • **Classifications (5-way):** `trigger_failure`, `recovery_sweep_failed` (infra & batch rollup), `quarantined_needs_inspection`, `post_claim_needs_inspection` (`DraftIntentRecorded` uncertain-write header vs other phases), and `pre_claim_or_unhandled`.<br>• **Zero-PII leak guards:** Strips customer emails, quoted prompts, and non-allowlisted ledger fields (`intent`, `cleaned_question`, `reply_body`, `customer_email`).<br>• **Slack escaping:** Neutralizes `&`, `<`, `>`, backticks (preventing `<!channel>`, `<!here>`, `<url\|label>`), and truncates reasons to ≤ 160 chars. |
-| **Static Audits**<br>`captured-source-linkage`<br>`model-dataset-scope`<br>`model-only-surface` | **3** | • `EvaluateModelCases`<br>• `RecordModelOutputs`<br>• `RecordCaseById`<br>*(in `evaluation-workflow.json`)* | • `source-linkage.json`<br>• `evaluation-cases.json`<br>• `evaluation-workflow.json` | Pass / Fail assertion | • Verifies captured linkage definitions.<br>• Asserts dataset has 8 unique cases (5 `extraction`, 3 `drafting`).<br>• Asserts `evaluation-workflow.json` is `active: false`, has no credentials, no `retryOnFail`, uses `<MODEL_TEST_DATA_TABLE_ID>`, and only uses allowed node types. |
+| **Static Audits**<br>`captured-source-linkage`<br>`model-dataset-scope`<br>`model-only-surface` | **3** | • `EvaluateModelCases`<br>• `RecordModelOutputs`<br>• `RecordCaseById`<br>*(in `evaluation-workflow.json`)* | • `source-linkage.json`<br>• `evaluation-cases.json`<br>• `evaluation-workflow.json` | Pass / Fail assertion | • Verifies captured linkage definitions.<br>• Asserts dataset has 8 unique cases (5 `extraction`, 3 `drafting`).<br>• Asserts `evaluation-workflow.json` is `active: false`, has `nodeGroups: []`, 12 functional nodes plus plain-markdown `stickyNote` swimlanes, no credentials, no `retryOnFail`, uses `<MODEL_TEST_DATA_TABLE_ID>`, and only uses allowed node types. |
 
-#### Layer 2: Recovery, Guards & Concurrency Safety (`tests/check-recovery.js` — 74 checks)
+#### Layer 2: Recovery, Guards & Concurrency Safety (`tests/check-recovery.js` — 75 checks)
 
 | Check Category & Function | Exact Checks | n8n Node Name(s) | Input | Output | Edge Cases Verified |
 | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -67,7 +69,7 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 | **Draft Readback & Recipient Guard**<br>`verifiedDraft()` & `confirmDraft()` | **12** | • `ConfirmSavedDraft`<br>• `VerifyInspectedDraft`<br>*(in `main-workflow.json`)* | • `WorkflowConfig`<br>• `DraftToConfirm`<br>• `ReadSavedDraft` | `{ ...result, draft_confirmed: true }` or throws Error | • Evaluates the live node expression from `ConfirmSavedDraft`.<br>• Rejects 10 tampered draft mutations: altered `id`, `messageId`, `threadId`, `subject`, `text`, wrong `to` address, multiple `to` addresses, injected `cc`, injected `bcc`, or label changed from `DRAFT` to `SENT`.<br>• Rejects recovered draft if recipient is no longer in `WorkflowConfig` allowlist. |
 | **Label Verification**<br>`verifiedLabels()` | **5** | `VerifyFinalSourceLabels`<br>*(in `main-workflow.json`)* | • Gmail `message`<br>• `source` context<br>• `required` label IDs | `{ ...source, labels_verified: true }` or throws Error | • Requires both `review` and `triaged` labels when routed to review.<br>• Supports both array of strings (`labelIds`) and simplified Gmail label objects (`labels: [{ id }]`).<br>• Throws `SourceLabelsNotVerified` on missing label, wrong message ID, or wrong thread ID. |
 | **Mailbox & Source Auth Guard** | **2** | `VerifyMailboxAndSource`<br>*(in `main-workflow.json`)* | • `WorkflowConfig`<br>• `ReadMailboxIdentity`<br>• `AuthorizedSourceRequest` | Verified context or throws Error | • Throws if authenticated Gmail account (`ReadMailboxIdentity.emailAddress`) does not match `WorkflowConfig.receiverEmail`.<br>• Throws if recovery request tries to substitute a different `sourceMessageId`. |
-| **Graph Topology, SQL Parameterization & Schema Audits** | **32** | • `OwnerAcquired` → `ReturnSkippedRequest`<br>• `RecoveryMayProceed` → `ReturnRecoveryDecision`<br>• `SaveRecipientAccepted` → `RecordDraftIntent` → `SaveReviewDraft` → `RecordSavedDraft`<br>• `RestoreRecordedDraft`<br>• `RestoreReviewContext`<br>• `OutcomeToVerify` → `ReadFinalSourceLabels` → `VerifyFinalSourceLabels` → `CompleteLedger`<br>• `TransferRecoveryOwnership`<br>• `SelectUnresolvedRequest` *(in `recover-order-status-request.json`)*<br>• `ReceiveWorkflowError` / `ReceiveAlertRequest` → `AlertInputEnvelope` → `ErrorAlertConfig` → `ParseErrorToSlackAlert` → `SendSlackErrorAlert` → `ReturnAlertReceipt` *(in `notify-order-status-error.json`)* | • `main-workflow.json`<br>• `recover-order-status-request.json`<br>• `notify-order-status-error.json`<br>• `order-status-ledger.sql` | Structural & security assertions pass | • **Helper sync:** All functions in `recovery-policy.js` and `error-policy.js` match the inline expressions in `main-workflow.json` and `notify-order-status-error.json`.<br>• **Lock-loss & alerting boundary isolation:** `OwnerAcquired[1]` terminates at `ReturnSkippedRequest`; first-time `NeedsRecovery` (`recovery_attempts = 0`) terminates quietly at `ReturnQueuedForAutoRecovery`.<br>• **Write ordering:** Intent recorded before draft creation; draft ID recorded before readback; `SaveReviewDraft` has `retryOnFail: false`.<br>• **No LLM re-execution:** Graph BFS from `RestoreRecordedDraft` and `RestoreReviewContext` proves LLM and `SaveReviewDraft` nodes are unreachable.<br>• **SQL parameterization:** All Postgres nodes use `$1::jsonb` and `queryReplacement` (zero string interpolation).<br>• **Error workflow audit (`NotifyOrderStatusError`):** Verifies 7 functional nodes + 2 swimlane sticky notes, no `errorWorkflow` self-reference, `<SLACK_ERROR_CHANNEL_ID>` placeholder, `SendSlackErrorAlert` retry configuration (`maxTries: 3`, `waitBetweenTries: 5000`), and manual `assignments` field mapping.<br>• **SQL ledger:** 1 table, composite PK `(mailbox, source_message_id)`, RLS enabled, `security invoker`, no `DROP`/`TRUNCATE`/`DELETE`. |
+| **Graph Topology, SQL Parameterization & Schema Audits** | **33** | • `OwnerAcquired` → `ReturnSkippedRequest`<br>• `RecoveryMayProceed` → `ReturnRecoveryDecision`<br>• `SaveRecipientAccepted` → `RecordDraftIntent` → `SaveReviewDraft` → `RecordSavedDraft`<br>• `RestoreRecordedDraft`<br>• `RestoreReviewContext`<br>• `OutcomeToVerify` → `ReadFinalSourceLabels` → `VerifyFinalSourceLabels` → `CompleteLedger`<br>• `TransferRecoveryOwnership`<br>• `SelectUnresolvedRequest` *(in `recover-order-status-request.json`)*<br>• `ReceiveWorkflowError` / `ReceiveAlertRequest` → `AlertInputEnvelope` → `ErrorAlertConfig` → `ParseErrorToSlackAlert` → `SendSlackErrorAlert` → `ReturnAlertReceipt` *(in `notify-order-status-error.json`)*<br>• `ReceiveOrderNumber` → `GetOrderConfig` → `ReadAllOrders` → `ReturnGetOrderContract` *(in `get-order.json`)* | • `main-workflow.json`<br>• `get-order.json`<br>• `recover-order-status-request.json`<br>• `notify-order-status-error.json`<br>• `order-status-ledger.sql` | Structural & security assertions pass | • **Helper sync:** All functions in `recovery-policy.js` and `error-policy.js` match the inline expressions in `main-workflow.json` and `notify-order-status-error.json`.<br>• **Lock-loss & alerting boundary isolation:** `OwnerAcquired[1]` terminates at `ReturnSkippedRequest`; first-time `NeedsRecovery` (`recovery_attempts = 0`) terminates quietly at `ReturnQueuedForAutoRecovery`.<br>• **Write ordering:** Intent recorded before draft creation; draft ID recorded before readback; `SaveReviewDraft` has `retryOnFail: false`.<br>• **No LLM re-execution:** Graph BFS from `RestoreRecordedDraft` and `RestoreReviewContext` proves LLM and `SaveReviewDraft` nodes are unreachable.<br>• **SQL parameterization:** All Postgres nodes use `$1::jsonb` and `queryReplacement` (zero string interpolation).<br>• **Error workflow audit (`NotifyOrderStatusError`):** Verifies 7 functional nodes + 2 swimlane sticky notes, no `errorWorkflow` self-reference, `<SLACK_ERROR_CHANNEL_ID>` placeholder, `SendSlackErrorAlert` retry configuration (`maxTries: 3`, `waitBetweenTries: 5000`), and manual `assignments` field mapping.<br>• **Order lookup sub-workflow (`GetOrder`):** Verifies `GetOrderConfig` (`<SPREADSHEET_ID>`, `<ORDERS_TAB_ID>`), `ReadAllOrders` `mode: "id"` expressions preserving `A:F` and `UNFORMATTED_VALUE` / `SERIAL_NUMBER`, and linear wiring to `ReturnGetOrderContract`.<br>• **SQL ledger:** 1 table, composite PK `(mailbox, source_message_id)`, RLS enabled, `security invoker`, no `DROP`/`TRUNCATE`/`DELETE`. |
 
 #### Layer 3: Source Linkage & Anti-Drift Audit (`tests/check-source-linkage.js` — 16 expressions + model definitions)
 
@@ -85,26 +87,40 @@ node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-or
 To evaluate the LLM extraction and drafting stages directly inside n8n (without running Gmail or Google Sheets):
 
 ### Step 1: Import the Evaluation Workflow
-Import [`../workflows/harness/evaluation-workflow.json`](../workflows/harness/evaluation-workflow.json) (`EvaluateOrderStatusModels`) into n8n and keep it **inactive/unpublished**. It contains 12 nodes, a stage selector (`extraction` vs. `drafting`), and no production Gmail or Sheets nodes.
+Import [`../workflows/harness/evaluation-workflow.json`](../workflows/harness/evaluation-workflow.json) (`EvaluateOrderStatusModels`) into n8n and keep it **inactive/unpublished**. It contains 12 functional nodes organized into 3 labeled sticky-note swimlanes (`Stage 1 — Load & route benchmark case`, `Stage 2 — Execute model stage & score`, `Stage 3 — Record evaluation results`; `nodeGroups: []`), a stage selector (`extraction` vs. `drafting`), and no production Gmail or Sheets nodes.
 
-### Step 2: Create the Evaluation Data Table
-Create a dedicated n8n **Data Table** (do **not** reuse `Orders`) with the following columns:
-- **String columns:** `caseId`, `stage`, `provider`, `model`, `source_object`, `case_object`, `expected_object`, `actual_object`, `metrics_object`, `error`, `run_object`
-- **Boolean column:** `pass` (initially `null`)
-- *(n8n automatically provides system `id`, `createdAt`, and `updatedAt` columns.)*
-
-### Step 3: Generate and Import the 8 Dataset Rows
-From the repository root, generate the CSV rows locally:
+### Step 2: Generate the Evaluation Dataset CSV
+From the repository root, generate the CSV rows locally (`model-evaluation-rows.csv` is already ignored in [`.gitignore`](../.gitignore#L12)):
 
 ```sh
 node tests/fixtures/dataset-rows.js > model-evaluation-rows.csv
 ```
 
-Import the 8 generated rows into your evaluation Data Table using the column types above.
+The 5 result columns (`actual_object`, `metrics_object`, `pass`, `error`, `run_object`) start blank (`""`) so un-run rows remain un-scored rather than `false`.
+
+### Step 3: Create the Evaluation Data Table (`Import CSV`) & Set `pass` to `Boolean`
+1. Create a dedicated n8n **Data Table** via **Create Data table → Import CSV** and upload `model-evaluation-rows.csv`.
+2. Because `tests/fixtures/dataset-rows.js` leaves `pass` blank (`""`), n8n's CSV import preview infers and locks `pass` to **String** during import (and n8n Data Tables cannot change a column's type in place afterward). Immediately after creating the table:
+   - **Delete** the `pass` (`String`) column.
+   - **Add** a new `pass` column with type **Boolean** (this initializes `pass` to `null` across all 8 rows; moving `pass` to the end of the column list has zero impact because `EvaluateOrderStatusModels` reads and writes by column name).
+3. Verify the final schema before proceeding to Step 4:
+   - **String columns (11):** `caseId`, `stage`, `provider`, `model`, `source_object`, `case_object`, `expected_object`, `actual_object`, `metrics_object`, `error`, `run_object`
+   - **Boolean column (1):** `pass` (initially `null` across all 8 rows)
+   - *(n8n automatically provides system `id`, `createdAt`, and `updatedAt` columns.)*
 
 ### Step 4: Rebind Table & Credentials
+> [!IMPORTANT]
+> **Do not open `RecordCaseById` before completing Steps 2–3** (generating the CSV, creating the evaluation Data Table via Import CSV, and re-adding `pass` as `Boolean`). Because `<MODEL_TEST_DATA_TABLE_ID>` is configured directly on `RecordCaseById` (or optionally pre-replaced in a local copy of `workflows/harness/evaluation-workflow.json` before Step 1 import), opening `RecordCaseById` in the n8n UI while `dataTableId` still holds `<MODEL_TEST_DATA_TABLE_ID>`—or switching `dataTableId`—can cause n8n's `resourceMapper` to clear `columns.value` or infer `pass` as `string`.
+
 1. Replace `<MODEL_TEST_DATA_TABLE_ID>` in **`EvaluateModelCases`**, **`RecordModelOutputs`**, and **`RecordCaseById`** with your evaluation Data Table ID.
-2. Bind your **Groq API** credential on both Groq model subnodes (`qwen/qwen3.8-27b`).
+2. Before saving `RecordCaseById`, verify `pass` shows type `Boolean` (not `String`), and verify (and restore if cleared) its filter and all 5 `columns.value` expressions (`mappingMode: "defineBelow"`):
+   - **Filter (`All Conditions`):** `caseId` (`Equal`) `={{ $('ReadModelCase').item.json.caseId }}`
+   - **`actual_object`:** `={{ JSON.stringify($('ModelOutcome').item.json.actual) }}`
+   - **`metrics_object`:** `={{ JSON.stringify($('ModelOutcome').item.json.metrics) }}`
+   - **`pass`:** `={{ $('ModelOutcome').item.json.pass }}`
+   - **`error`:** `={{ $('ModelOutcome').item.json.error }}`
+   - **`run_object`:** `={{ JSON.stringify({source:$('ModelOutcome').item.json.source,executionId:$execution.id,services:['GroqExtractionModel','GroqDraftingModel'].filter(n=>$(n).isExecuted),recordingKind:$('ReadModelCase').item.json.recordingKind||'native-trigger'}) }}`
+3. Bind your **Groq API** credential on both Groq model subnodes (`qwen/qwen3.8-27b`).
 
 ### Step 5: Execute the Evaluation
 1. In the n8n editor, filter **`EvaluateModelCases`** to 1 representative case (`maxRows: 1`) and run a single test first to verify credential and table bindings.
@@ -154,7 +170,20 @@ Each case supplies `{ verified_order: input.order, customer_question: input.ques
 
 ## 3. Live End-to-End Regression & Demo Runner
 
-The optional end-to-end test orchestrator (`RunOrderStatusRegressionTest`), evidence observer (`ObserveOrderStatusCase`), and fixture sender (`Sender`) test the real `DraftOrderStatusReply` workflow end-to-end across Gmail, Google Sheets, PostgreSQL, and Groq/OpenRouter.
+The optional end-to-end test orchestrator (`RunOrderStatusRegressionTest`), evidence observer (`ObserveOrderStatusRegressionCase`), and fixture sender (`Sender`) test the real `DraftOrderStatusReply` workflow end-to-end across Gmail, Google Sheets, PostgreSQL, and Groq/OpenRouter.
+
+### E2E Harness Stages
+
+Each E2E harness workflow is organized into labeled sticky-note swimlanes (`nodeGroups: []`):
+
+- **`RunOrderStatusRegressionTest`** (`workflows/harness/run-order-status-regression.json`, 5 stages):
+  1. **Stage 1 — Verify readiness:** Validate credentials, main/child/sender versions, zero pins, labels, Google Sheets fixtures (`1001`–`1003`), empty pending queue, and no active sessions (`ReadyToStart`; aborts at `NotReady` / `ReadinessRejected`).
+  2. **Stage 2 — Acquire exclusive session:** Hash the main and `GetOrder` workflow definitions (`mainHash`/`childHash`), create the session row, and acquire the oldest-active lock in `OrderStatusRegressionSessions` (aborts safely on concurrent runs without touching `DraftOrderStatusReply`).
+  3. **Stage 3 — Start & verify workflow:** Record activation intent, activate `DraftOrderStatusReply` if inactive, wait `80s`, and confirm `ReceivePendingDemo` has recorded an initial Gmail poll timestamp (`lastTimeChecked` / `CheckpointReady`; routes activation or poll-check failures straight to Stage 5 restoration).
+  4. **Stage 4 — Execute & observe cases:** Loop through planned scenarios, re-checking version stability and time budget before recording send intent, dispatching via `Sender`, asserting via `ObserveOrderStatusRegressionCase`, and persisting results.
+  5. **Stage 5 — Restore & publish verdict:** Restore `DraftOrderStatusReply` to its starting active/inactive state, verify final main/child parity, and persist `SuiteResults` (or record `CleanupFailed`).
+- **`ObserveOrderStatusRegressionCase`** (`workflows/harness/observe-order-status-case.json`, 2 stages): **Stage 1 — Await settled main execution** (paced `20s` polling up to `10m`) → **Stage 2 — Capture & assert evidence** (main execution, Gmail thread, optional `GetOrder` child execution → `AssertActualCase`).
+- **`Sender`** (`workflows/harness/sender-callable.json`, 1 stage): **Stage 1 — Validate & deliver fixture email** (`customer` Gmail or `self` Gmail, or fail closed at `RejectSender`).
 
 ### Execution Modes
 
@@ -162,25 +191,44 @@ Before clicking **Execute workflow** on `RunOrderStatusRegressionTest`, set `mod
 
 | `mode` | Scenarios Run | Controlled Emails Sent | Expected Outcomes |
 | --- | --- | --- | --- |
-| **`regression`** *(default)* | All 10 cases (`S01`–`S10`) | 9 customer SMTP + 1 receiver-to-self Gmail | 6 reply drafts + 4 manual reviews |
-| **`demo`** | 4 representative cases (`S01`, `S04`, `S06`, `S08`) | 3 customer SMTP + 1 receiver-to-self Gmail | 2 reply drafts + 2 manual reviews |
+| **`regression`** *(default)* | All 10 cases (`S01`–`S10`) | 9 customer Gmail + 1 receiver-to-self Gmail | 6 reply drafts + 4 manual reviews |
+| **`demo`** | 4 representative cases (`S01`, `S04`, `S06`, `S08`) | 3 customer Gmail + 1 receiver-to-self Gmail | 2 reply drafts + 2 manual reviews |
 
 ### Setup & Rebinding for E2E Harness Workflows
 
-1. **Import the 3 E2E Harness Workflows (Inactive):**
-   - [`../workflows/harness/sender-callable.json`](../workflows/harness/sender-callable.json) (`Sender`)
-   - [`../workflows/harness/observe-order-status-case.json`](../workflows/harness/observe-order-status-case.json) (`ObserveOrderStatusCase`)
-   - [`../workflows/harness/run-order-status-regression.json`](../workflows/harness/run-order-status-regression.json) (`RunOrderStatusRegressionTest`)
-2. **Configure `Sender`:** Replace `<CUSTOMER_EMAIL>` and `<RECEIVER_EMAIL>` in **`SenderConfig`**, bind your **SMTP credential** for the customer path (`Send an Email`), and bind your **Gmail OAuth2 credential** for the `self` path (`SendToSelf`).
-3. **Bind Credentials in Runner & Observer:** Bind your **n8n API** credential (`OrderStatusRegressionApi`), receiver **Gmail OAuth2** credential, and **Google Sheets OAuth2** credential.
-4. **Create the `OrderStatusRegressionSessions` Data Table (Empty):** Create a dedicated, initially **empty** n8n Data Table (no CSV import is needed; the runner populates and updates rows dynamically) with columns `sessionId` (String), `active` (Boolean), `status` (String), `state_object` (String), and `summary_object` (String).
-5. **Publish Callable Helpers & Configure `RunConfiguration`:** Validate and publish `Sender` and `ObserveOrderStatusCase`, then fill in all placeholder fields (`<OBSERVER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>`, `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<SESSION_DATA_TABLE_ID>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>`, `<CUSTOMER_EMAIL>`, and `<RECEIVER_EMAIL>`) in the single **`RunConfiguration`** node of `RunOrderStatusRegressionTest` (see the [field-by-field reference](#runconfiguration-field-by-field-reference) below).
-6. **Create the Gmail Arrival Filter:** In the receiver's Gmail settings, create a filter matching `From: <CUSTOMER_EMAIL> OR <RECEIVER_EMAIL>`, `To: <RECEIVER_EMAIL>`, and `Subject: OSRD SMOKE` that applies `order-status-reply-drafter/demo-input`.
-7. **Finalize `RunConfiguration` & Execute:** Set the validated n8n version IDs (`mainVersion`, `childVersion`, `senderVersion`, `pinsConfirmedVersion`), confirm zero test pins on `DraftOrderStatusReply` and `GetOrder`, set `arrivalFilterConfirmed: true`, `apiCredentialReady: true`, and `runEnabled: true`, and click **Execute workflow** once.
+1. **Create the `OrderStatusRegressionSessions` Data Table (Empty) & Import the 3 E2E Harness Workflows (Inactive):**
+   - Create a dedicated, initially **empty** n8n Data Table named `OrderStatusRegressionSessions` first (no CSV import is needed; the runner populates and updates rows dynamically) with columns `sessionId` (String), `active` (Boolean), `status` (String), `state_object` (String), and `summary_object` (String). Copy its `<SESSION_DATA_TABLE_ID>` from the Data Table URL (`/datatables/<ID>`) so it is ready before touching `RunOrderStatusRegressionTest`.
+   - Import the 3 E2E harness workflows and keep them **inactive**:
+     - [`../workflows/harness/sender-callable.json`](../workflows/harness/sender-callable.json) (`Sender`)
+     - [`../workflows/harness/observe-order-status-case.json`](../workflows/harness/observe-order-status-case.json) (`ObserveOrderStatusRegressionCase`)
+     - [`../workflows/harness/run-order-status-regression.json`](../workflows/harness/run-order-status-regression.json) (`RunOrderStatusRegressionTest`)
+2. **Configure, Bind & Publish Callable Helpers (`Sender` and `ObserveOrderStatusRegressionCase`):**
+   - In **`Sender`**: replace `<RECEIVER_EMAIL>` in **`SenderConfig`**, bind your **customer Gmail OAuth2 credential** (`<CUSTOMER_EMAIL>`, the only customer-owned Gmail node in the repo) on `SendAsCustomer`, and bind your **receiver Gmail OAuth2 credential** (`<RECEIVER_EMAIL>`) on `SendToSelf`.
+   - In **`ObserveOrderStatusRegressionCase`**: bind **`OrderStatusRegressionApi`** (`n8nApi`) on `FindMainExecutions`, `ReadActualExecution`, and `ReadActualChild`, and bind receiver **Gmail OAuth2** (`gmailOAuth2`) on `FindExactSource` and `ReadSourceThread`.
+   - **Validate and publish both helpers** so their workflow IDs and `senderVersion` are fixed before configuring `RunOrderStatusRegressionTest`.
+3. **Configure `RunConfiguration` FIRST inside `RunOrderStatusRegressionTest` (Before Opening Other Nodes):**
+   - Open **`RunConfiguration`** (`Stage 1`) **first**—before binding credentials or opening Stage 4 nodes—and fill in `<MAIN_WORKFLOW_ID>`, `<GET_ORDER_WORKFLOW_ID>`, `<SENDER_WORKFLOW_ID>`, `<ORDERS_SPREADSHEET_ID>`, `<ORDERS_SHEET_GID>`, `<SESSION_DATA_TABLE_ID>`, `<RECEIVER_GMAIL_CREDENTIAL_ID>` (from the n8n Credentials URL, or verify via `ReadStartingMain` in Step 7), `<CUSTOMER_EMAIL>`, and `<RECEIVER_EMAIL>` (see the [field-by-field reference](#runconfiguration-field-by-field-reference) below), keeping `runEnabled: false`, `apiCredentialReady: false`, and `arrivalFilterConfirmed: false`.
+   - Save the workflow and click **Execute step** on **`RunConfiguration`** (do **not** pin data) so `$('RunConfiguration').first()` has live editor run data.
+
+   > [!IMPORTANT]
+   > The 8 Data Table write nodes (`RecordSession`, `RecordActivationIntent`, `RecordSendIntent`, `PersistDelivery`, `PersistCaseResult`, `SaveSuiteSummary`, `SaveConcurrentResult`, `RecordCleanupFailure`) use expression `dataTableId` (`={{ $('RunConfiguration').first().json.sessionDataTableId }}`) with `defineBelow` column mappings. **Do not open or edit any of the 10 Data Table nodes** (`CheckUnfinishedSessions`, `RecheckSessionLock`, and the 8 write nodes) during setup—they require zero credentials and zero manual edits. Opening a Data Table `resourceMapper` node in the editor when `$('RunConfiguration').first().json.sessionDataTableId` still holds a placeholder or lacks editor run data can wipe `columns.value` and `columns.schema`. If you ever need to inspect one in a fresh editor tab, click **Execute step** on `RunConfiguration` (without pinning) first so `$('RunConfiguration').first()` resolves in editor run data.
+
+4. **Bind Credentials in `RunOrderStatusRegressionTest`:**
+   - Bind **`OrderStatusRegressionApi`** (`n8nApi`) on all 11 `n8n` nodes (`ReadStartingMain`, `ReadStartingChild`, `ReadStartingSender`, `StartValidatedMain`, `ReadPollingCheckpoint`, `ReadMainBeforeCase`, `ReadChildBeforeCase`, `ReadMainBeforeRestore`, `RestoreMainInactive`, `VerifyFinalMain`, `VerifyFinalChild`).
+   - Bind receiver **`gmailOAuth2`** on `CheckPendingInput` and `ReadProjectLabels`.
+   - Bind **`googleSheetsOAuth2Api`** on `ReadOrdersFixture` (**credential only**—do not touch `documentId`/`sheetName` `By ID` fields or switch to `From list`, preserving `A:F`, `UNFORMATTED_VALUE`, `SERIAL_NUMBER`, and `returnFirstMatch: false`).
+5. **Rebind Runner Sub-Workflows (`SendSelectedFixture` & `ObserveActualCase` via `From list`):**
+   - Select **`Sender`** on **`SendSelectedFixture`** (`Stage 4`) and **`ObserveOrderStatusRegressionCase`** on **`ObserveActualCase`** (`Stage 4`) via **From list**, confirm the 4 preserved `workflowInputs` expressions remain intact before saving, and avoid opening adjacent Stage 4 Data Table nodes (`RecordSendIntent`, `PersistDelivery`, `PersistCaseResult`) before saving:
+     - `SendSelectedFixture`: `subject: ={{ $('SendIntent').item.json.fixture.subject }}`, `body: ={{ $('SendIntent').item.json.fixture.body }}`, `senderMode: ={{ $('SendIntent').item.json.fixture.senderMode }}`
+     - `ObserveActualCase`: `state: ={{ $('RecordDeliveryState').item.json }}`
+6. **Create the Gmail Arrival Filter:**
+   - In the receiver's Gmail settings, create a filter matching `From: <CUSTOMER_EMAIL> OR <RECEIVER_EMAIL>`, `To: <RECEIVER_EMAIL>`, and `Subject: OSRD SMOKE` that applies `order-status-reply-drafter/demo-input`.
+7. **Finalize Version Locks (`mainVersion`, `childVersion`, `senderVersion`, `pinsConfirmedVersion`), Confirm Zero Pins, Enable Safety Gates & Execute:**
+   - Set the validated n8n version IDs (`mainVersion`, `childVersion`, `senderVersion`, `pinsConfirmedVersion`)—and populate or verify `receiverGmailCredentialId` via `ReadStartingMain` if not already copied from the Credentials URL—confirm zero test pins on `DraftOrderStatusReply` and `GetOrder`, set `arrivalFilterConfirmed: true`, `apiCredentialReady: true`, and `runEnabled: true`, and click **Execute workflow** once.
 
 ### `RunConfiguration` Field-by-Field Reference
 
-All 20 assignments in the **`RunConfiguration`** node (`workflows/harness/run-order-status-regression.json`) and how they are validated by `ApiCredentialReady`, `CheckReadiness`, and `ObserveOrderStatusCase`:
+All 19 assignments in the **`RunConfiguration`** node (`workflows/harness/run-order-status-regression.json`) and how they are validated by `ApiCredentialReady`, `CheckReadiness`, and `ObserveOrderStatusRegressionCase`:
 
 #### A. Workflow Identifiers & Version Locks
 
@@ -190,9 +238,8 @@ All 20 assignments in the **`RunConfiguration`** node (`workflows/harness/run-or
 | **`mainVersion`** | `<VALIDATED_MAIN_VERSION>` | Current `versionId` of `DraftOrderStatusReply` *(see tip below)*. | `CheckReadiness` asserts `main.versionId === config.mainVersion` and checks for version drift before every case (`PrepareNextCase`) and in `AssertActualCase`. |
 | **`childId`** | `<GET_ORDER_WORKFLOW_ID>` | Workflow ID of **`GetOrder`** (from its browser URL). | Used by `ReadStartingChild`, `ReadChildBeforeCase`, `VerifyFinalChild`, and `ReadActualChild` in the observer. |
 | **`childVersion`** | `<VALIDATED_GET_ORDER_VERSION>` | Current `versionId` of `GetOrder` (must be published/active at this version). | `CheckReadiness` asserts `child.versionId === config.childVersion && child.active === true && child.activeVersionId === config.childVersion`. |
-| **`senderId`** | `<SENDER_WORKFLOW_ID>` | Workflow ID of the imported **`Sender`** helper (`workflows/harness/sender-callable.json`). | Used by `ReadStartingSender` (n8n API) and `SendSelectedFixture` (Execute Sub-workflow). |
+| **`senderId`** | `<SENDER_WORKFLOW_ID>` | Workflow ID of the imported **`Sender`** helper (`workflows/harness/sender-callable.json`). | Used by `ReadStartingSender` (n8n API) for readiness/version checks *(while `SendSelectedFixture` selects `Sender` directly via **From list**)*. |
 | **`senderVersion`** | `<VERIFIED_SENDER_VERSION>` | Current `versionId` of `Sender`. | `CheckReadiness` asserts `sender.versionId === config.senderVersion`. |
-| **`observerId`** | `<OBSERVER_WORKFLOW_ID>` | Workflow ID of the imported **`ObserveOrderStatusCase`** helper (`workflows/harness/observe-order-status-case.json`). | Called by `ObserveActualCase` (Execute Sub-workflow) after each fixture email is sent. *(No separate version field.)* |
 | **`pinsConfirmedVersion`** | `<VALIDATED_MAIN_VERSION>` | Set to the exact same `versionId` string as **`mainVersion`** after confirming zero pinned data on both `DraftOrderStatusReply` and `GetOrder`. | `CheckReadiness` requires `pinData` to be empty, or `config.pinsConfirmedVersion === main.versionId` when the n8n API omits empty `pinData`. |
 
 > **Tip — How to easily inspect `versionId` and `receiverGmailCredentialId`:** Once you fill in `mainId`, `childId`, and `senderId`, bind your **n8n API** credential, and temporarily set `apiCredentialReady: true`, you can test-run the individual nodes **`ReadStartingMain`**, **`ReadStartingChild`**, and **`ReadStartingSender`** on the canvas. Their output JSON exposes each workflow's top-level `versionId` as well as `nodes[0].credentials.gmailOAuth2.id` on `ReceivePendingDemo`.
@@ -201,8 +248,8 @@ All 20 assignments in the **`RunConfiguration`** node (`workflows/harness/run-or
 
 | Field | Default / Placeholder | Where to Find It / What to Enter | Pre-Flight & Runtime Checks |
 | :--- | :--- | :--- | :--- |
-| **`customer`** | `<CUSTOMER_EMAIL>` | Controlled customer sender email address. Must match `customerEmail` in `WorkflowConfig` (`DraftOrderStatusReply`), `SenderConfig` (`Sender`), and `customer_email` in the `Orders` sheet. | `CheckReadiness` verifies rows `1001`, `1002`, and `1003` in the `Orders` sheet match `config.customer`; `AssertActualCase` verifies the `From` header on customer test emails. |
-| **`receiver`** | `<RECEIVER_EMAIL>` | Authenticated support Gmail address. Must match `receiverEmail` in `WorkflowConfig` and `SenderConfig`. | Used by `FindExactSource` (`to:<receiver>`) and `AssertActualCase` (`source_recipient`, `ledger_mailbox`, and `From` header on `S08` self-send). |
+| **`customer`** | `<CUSTOMER_EMAIL>` | Controlled customer sender email address. Must match `customerEmail` in `WorkflowConfig` (`DraftOrderStatusReply`), the customer Gmail OAuth2 account bound on `SendAsCustomer` (`Sender`), and `customer_email` in the `Orders` sheet. | `CheckReadiness` verifies rows `1001`, `1002`, and `1003` in the `Orders` sheet match `config.customer`; `AssertActualCase` verifies the `From` header on customer test emails. |
+| **`receiver`** | `<RECEIVER_EMAIL>` | Authenticated support Gmail address. Must match `receiverEmail` in `WorkflowConfig` and `SenderConfig`, and the receiver Gmail OAuth2 account bound on `SendToSelf` (`Sender`). | Used by `FindExactSource` (`to:<receiver>`) and `AssertActualCase` (`source_recipient`, `ledger_mailbox`, and `From` header on `S08` self-send). |
 | **`receiverGmailCredentialId`** | `<RECEIVER_GMAIL_CREDENTIAL_ID>` | Internal n8n credential ID of the receiver's **Gmail OAuth2** credential (visible in the credential URL under **Credentials** or in `ReadStartingMain` output on `ReceivePendingDemo`). | `CheckReadiness` asserts `ReceivePendingDemo.credentials.gmailOAuth2.id === config.receiverGmailCredentialId` and `maxResults === 1`. |
 
 #### C. External Data Sources
@@ -211,7 +258,7 @@ All 20 assignments in the **`RunConfiguration`** node (`workflows/harness/run-or
 | :--- | :--- | :--- | :--- |
 | **`ordersSpreadsheetId`** | `<ORDERS_SPREADSHEET_ID>` | Google Spreadsheet document ID from `https://docs.google.com/spreadsheets/d/<ORDERS_SPREADSHEET_ID>/edit`. | Used by `ReadOrdersFixture` to read columns `A:F` and verify that orders `1001`–`1003` match expected test fixtures (and `9999` does not exist). |
 | **`ordersSheetGid`** | `<ORDERS_SHEET_GID>` | Numeric sheet tab GID from the Google Sheet URL (usually `"0"` for the first tab, e.g., `#gid=0`). | Passed as `sheetName` (by ID) in `ReadOrdersFixture`. |
-| **`sessionDataTableId`** | `<SESSION_DATA_TABLE_ID>` | ID of the empty **`OrderStatusRegressionSessions`** Data Table created in Step 4. | Used by all 10 Data Table nodes (`CheckUnfinishedSessions`, `RecordSession`, `RecheckSessionLock`, `SaveSuiteSummary`, etc.) to track active locks and results. |
+| **`sessionDataTableId`** | `<SESSION_DATA_TABLE_ID>` | ID of the empty **`OrderStatusRegressionSessions`** Data Table created in Step 1. | Used by all 10 Data Table nodes (`CheckUnfinishedSessions`, `RecordSession`, `RecheckSessionLock`, `SaveSuiteSummary`, etc.) to track active locks and results. |
 
 #### D. Safety Gates, Execution Mode & Baseline Revisions
 

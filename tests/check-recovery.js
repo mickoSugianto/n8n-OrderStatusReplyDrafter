@@ -168,7 +168,7 @@ test('recovery rejection has no downstream writes and quarantine routes to Prepa
  assert.deepEqual(edges('RecoveryMayProceed')[2],['PrepareQuarantineRequest']);
  assert(!w.connections.ReturnRecoveryDecision);
 });
-test('Phase 00 external reads, thread reconciler, and quarantine topology',()=>{
+test('RecoveryLane external reads, thread reconciler, and quarantine topology',()=>{
  assert.equal(n('ReadRecoverySource').onError,'continueErrorOutput');
  assert.deepEqual(edges('ReadRecoverySource'),[['PrepareRecoveryEnvelope'],['PrepareRecoveryEnvelope']]);
  assert.equal(n('ReadPreviousExecution').onError,'continueErrorOutput');
@@ -215,7 +215,7 @@ test('draft-intent recovery bypasses LLM and Sheets and resumes at SharedReplyCo
  const intentParams=evaluate(n('RecordDraftIntent').parameters.options.queryReplacement,{OwnedRequest:{ledger:{...record,phase:'DraftIntentRecorded'}},RecheckAllowedRecipient:source});
  assert.equal(JSON.parse(intentParams[0]).expected_phase,'DraftIntentRecorded');
 });
-test('Phase 08 alert gate suppresses NeedsRecovery and alerts NeedsInspection',()=>{
+test('ErrorLane alert gate suppresses NeedsRecovery and alerts NeedsInspection',()=>{
  assert.equal(n('RecordUnfinishedWork').onError,'continueErrorOutput');
  assert.deepEqual(edges('RecordUnfinishedWork'),[['NeedsImmediateAlert'],['StopVisiblyWithoutTriage']]);
  assert.deepEqual(edges('NeedsImmediateAlert'),[['ReturnQueuedForAutoRecovery'],['StopVisiblyWithoutTriage']]);
@@ -388,6 +388,67 @@ test('error alerting workflow is a stateless PascalCase 2-swimlane workflow',()=
  for(const [name,types]of Object.entries(ew.connections)){
   assert(ewNames.has(name));
   for(const outputs of Object.values(types))for(const targets of outputs)for(const t of targets||[])assert(ewNames.has(t.node));
+ }
+});
+test('get-order workflow centralizes Sheets IDs in GetOrderConfig and preserves ReadAllOrders options',()=>{
+ const gw=JSON.parse(fs.readFileSync('workflows/get-order.json'));
+ assert.equal(gw.name,'GetOrder');
+ assert.equal(gw.active,false);
+ assert.deepEqual(gw.pinData||{},{});
+ assert.deepEqual(gw.nodeGroups,[],'get-order.json nodeGroups must be []');
+ assert.equal(gw.nodes.length,4);
+ assert.equal(new Set(gw.nodes.map(node=>node.id)).size,gw.nodes.length,'duplicate node id in get-order.json');
+ assert.equal(new Set(gw.nodes.map(node=>node.name)).size,gw.nodes.length,'duplicate node name in get-order.json');
+ const gwNames=new Set(gw.nodes.map(node=>node.name));
+ const visit=(v,name)=>{
+  if(typeof v==='string'&&v.startsWith('={{')){
+   assert.deepEqual(v.match(/{{[\s\S]*?}}/g),[v.slice(1)],name);
+   assert(!/\b(?:prototype|__proto__|constructor)\b/.test(v),name+' accesses blocked Tournament sandbox property');
+  }else if(v&&typeof v==='object')for(const c of Object.values(v))visit(c,name);
+ };
+ for(let i=0;i<gw.nodes.length;i++){
+  const node=gw.nodes[i];
+  assert(!node.credentials,node.name+' must not commit credentials');
+  assert(Array.isArray(node.position)&&node.position.length===2&&node.position.every(p=>Number.isInteger(p)&&p%16===0),node.name+' position must be 16px-aligned');
+  for(let j=i+1;j<gw.nodes.length;j++){
+   const other=gw.nodes[j];
+   const dx=Math.abs(node.position[0]-other.position[0]),dy=Math.abs(node.position[1]-other.position[1]);
+   assert(!(dx<160&&dy<112),`${node.name} and ${other.name} positions overlap`);
+  }
+  visit(node.parameters,node.name);
+  for(const [,ref]of JSON.stringify(node.parameters).matchAll(/\$\('([^']+)'\)/g))assert(gwNames.has(ref),node.name+' -> '+ref);
+ }
+ const gwn=name=>{const v=gw.nodes.find(node=>node.name===name);assert(v,name);return v;};
+ const cfg=gwn('GetOrderConfig');
+ assert.equal(cfg.type,'n8n-nodes-base.set');
+ assert.equal(cfg.typeVersion,3.5);
+ assert.notEqual(cfg.parameters.mode,'raw');
+ assert.deepEqual(cfg.parameters.assignments.assignments.map(a=>[a.name,a.value,a.type]),[
+  ['spreadsheetId','<SPREADSHEET_ID>','string'],
+  ['sheetGid','<ORDERS_TAB_ID>','string']
+ ]);
+ const read=gwn('ReadAllOrders');
+ assert.equal(read.type,'n8n-nodes-base.googleSheets');
+ assert.equal(read.typeVersion,4.7);
+ assert.equal(read.alwaysOutputData,true);
+ assert.deepEqual(read.parameters.documentId,{__rl:true,mode:'id',value:"={{ $('GetOrderConfig').first().json.spreadsheetId }}"});
+ assert.deepEqual(read.parameters.sheetName,{__rl:true,mode:'id',value:"={{ $('GetOrderConfig').first().json.sheetGid }}"});
+ assert.deepEqual(read.parameters.options,{
+  dataLocationOnSheet:{values:{rangeDefinition:'specifyRangeA1',range:'A:F'}},
+  outputFormatting:{values:{general:'UNFORMATTED_VALUE',date:'SERIAL_NUMBER'}},
+  returnFirstMatch:false
+ });
+ const ret=gwn('ReturnGetOrderContract');
+ assert.equal(ret.executeOnce,true);
+ assert.equal(ret.parameters.mode,'raw');
+ const gwEdges=name=>(gw.connections[name]?.main||[]).map(targets=>(targets||[]).map(t=>t.node));
+ assert.deepEqual(gwEdges('ReceiveOrderNumber'),[['GetOrderConfig']]);
+ assert.deepEqual(gwEdges('GetOrderConfig'),[['ReadAllOrders']]);
+ assert.deepEqual(gwEdges('ReadAllOrders'),[['ReturnGetOrderContract']]);
+ assert(!gw.connections.ReturnGetOrderContract);
+ for(const [name,types]of Object.entries(gw.connections)){
+  assert(gwNames.has(name));
+  for(const outputs of Object.values(types))for(const targets of outputs)for(const t of targets||[])assert(gwNames.has(t.node));
  }
 });
 console.log(`${total} focused local recovery/guard/source checks passed. Offline checks only; no database calls, concurrent executions or Gmail operations were performed.`);

@@ -22,15 +22,45 @@
     },
     {
       "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-get-order-spreadsheet-id",
+              "name": "spreadsheetId",
+              "value": "<SPREADSHEET_ID>",
+              "type": "string"
+            },
+            {
+              "id": "cfg-get-order-sheet-gid",
+              "name": "sheetGid",
+              "value": "<ORDERS_TAB_ID>",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "45f1a7a6-ac58-45bc-8457-6abc9ce90598",
+      "name": "GetOrderConfig",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "notes": "Centralized Google Sheets binding: set spreadsheetId (document ID) and sheetGid (numeric Orders tab GID) here instead of editing ReadAllOrders dropdowns, so ReadAllOrders retains A:F and UNFORMATTED_VALUE / SERIAL_NUMBER options."
+    },
+    {
+      "parameters": {
         "documentId": {
           "__rl": true,
-          "mode": "list",
-          "value": "<SPREADSHEET_ID>"
+          "mode": "id",
+          "value": "={{ $('GetOrderConfig').first().json.spreadsheetId }}"
         },
         "sheetName": {
           "__rl": true,
-          "mode": "list",
-          "value": "<ORDERS_TAB_ID>"
+          "mode": "id",
+          "value": "={{ $('GetOrderConfig').first().json.sheetGid }}"
         },
         "options": {
           "dataLocationOnSheet": {
@@ -53,7 +83,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        224,
+        448,
         0
       ],
       "alwaysOutputData": true,
@@ -70,7 +100,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        448,
+        672,
         0
       ],
       "executeOnce": true
@@ -78,6 +108,17 @@
   ],
   "connections": {
     "ReceiveOrderNumber": {
+      "main": [
+        [
+          {
+            "node": "GetOrderConfig",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetOrderConfig": {
       "main": [
         [
           {

@@ -60,16 +60,15 @@ Built with **n8n**, **Gmail**, **Google Sheets**, **Supabase PostgreSQL**, **Gro
 
 ## How It Works
 
-The main workflow canvas is organized into nine numbered phases (`00`–`08`):
+The main workflow canvas is organized into **6 Business Stages** (`Stage 1`–`Stage 6`), bookended by `RecoveryLane` at the top and `ErrorLane` at the bottom:
 
-1. **Receive & Claim (`01`)** — Polls Gmail every minute for messages with the input label (excluding `triaged`, drafts, Spam, and Trash). Verifies the authenticated receiver mailbox via the Gmail profile API and acquires an atomic PostgreSQL lock on `(mailbox, source_message_id)`. Competing or already-completed claims exit immediately.
-2. **Validate & Clean Input (`02`)** — Checks that the sender is a single valid address in the controlled allowlist, strips quoted lines starting with `>`, and ensures the cleaned question is non-empty.
-3. **Extract & Route (`03`)** — Uses Groq (`qwen/qwen3.8-27b`, with OpenRouter fallback on operational errors) to classify the request (`order_update` vs. `manual_review`) and extract digit-only order numbers. Deduplicates repeated identical numbers; routes two or more distinct order numbers to manual review.
-4. **Look Up Order (`04`)** — Calls the `GetOrder` sub-workflow for exact string matching and schema validation against Google Sheets (`found`, `not_found`, `duplicate`, or `invalid_data`). Checks that the sender matches `customer_email`.
-5. **Prepare Reply (`05`)** — Uses fixed templates for missing or unknown order numbers. For verified owned orders, calls Groq (with OpenRouter fallback) using only verified order fields, then runs deterministic checks (non-empty text, required tracking number present, no URLs).
-6. **Save & Confirm Draft (`06`)** — Re-verifies the recipient against the allowlist, records draft intent (`DraftIntentRecorded`) in PostgreSQL before calling Gmail, creates the draft, checkpoints the returned `draft_id` and `draft_message_id` (`DraftSaved`), and reads the draft back from Gmail to confirm recipient, thread, subject, body, and absence of extra `CC`/`BCC`.
-7. **Apply & Verify Labels (`07`)** — Checkpoints `LabelsPending`, applies `triaged` (and `needs-review` for manual-review outcomes), reads the source message back to confirm the labels are present, and marks the ledger row `Completed`.
-8. **Retain Unfinished Work (`08`) & Supervised Recovery (`00`)** — If a handled failure occurs after claim, records `NeedsRecovery` or `NeedsInspection` at the current ledger phase and stops visibly so an operator can inspect and recover via `RecoverOrderStatusRequest`.
+1. **Stage 1 — Receive Inquiry (`Stage1Lane`)** — Polls Gmail every minute for messages with the input label (excluding `triaged`, drafts, Spam, and Trash). Verifies the authenticated receiver mailbox via the Gmail profile API and acquires an atomic PostgreSQL lock on `(mailbox, source_message_id)`. Competing or already-completed claims exit immediately.
+2. **Stage 2 — Classify & Extract (`Stage2Lane`)** — Strips quoted lines starting with `>`, checks that the sender is a single valid address in the controlled allowlist and the cleaned question is non-empty, then uses Groq (`qwen/qwen3.8-27b`, with OpenRouter fallback on operational errors) to classify the request (`order_update` vs. `manual_review`) and extract digit-only order numbers. Deduplicates repeated identical numbers; routes two or more distinct order numbers to manual review.
+3. **Stage 3 — Lookup Order (`Stage3Lane`)** — Calls the `GetOrder` sub-workflow for exact string matching and schema validation against Google Sheets (`found`, `not_found`, `duplicate`, or `invalid_data`). Checks that the sender matches `customer_email`.
+4. **Stage 4 — Prepare Reply (`Stage4Lane`)** — Uses fixed templates for missing or unknown order numbers. For verified owned orders, calls Groq (with OpenRouter fallback) using only verified order fields, then runs deterministic checks (non-empty text, required tracking number present, no URLs).
+5. **Stage 5 — Save Gmail Draft (`Stage5Lane`)** — Re-verifies the recipient against the allowlist, records draft intent (`DraftIntentRecorded`) in PostgreSQL before calling Gmail, creates the draft, checkpoints the returned `draft_id` and `draft_message_id` (`DraftSaved`), and reads the draft back from Gmail to confirm recipient, thread, subject, body, and absence of extra `CC`/`BCC`.
+6. **Stage 6 — Triage Source Email (`Stage6Lane`)** — Checkpoints `LabelsPending`, applies `triaged` (and `needs-review` for manual-review outcomes), reads the source message back to confirm the labels are present, and marks the ledger row `Completed`.
+7. **Error Handling (`ErrorLane`) & Supervised Recovery (`RecoveryLane`)** — If a handled failure occurs after claim, `ErrorLane` records `NeedsRecovery` or `NeedsInspection` at the current ledger phase (suppressing immediate alerts on first-time transient failures and stopping visibly on terminal issues), while `RecoveryLane` reconciles evidence and resumes at the recorded phase when invoked by `RecoverOrderStatusRequest`.
 
 ---
 
@@ -121,7 +120,7 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
    - `order-status-reply-drafter/demo-input`
    - `order-status-reply-drafter/triaged`
    - `order-status-reply-drafter/needs-review`
-5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes and HTTP profile read). Fill in the 5 fields on `WorkflowConfig` (`customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, `reviewLabelId`) and select the Sheet and sub-workflows from the dropdowns on `ReadAllOrders`, `GetOrderDeterministically`, and `RecoverThroughMain` using [`docs/rebinding-map.md`](docs/rebinding-map.md).
+5. **Rebind Placeholders & Credentials:** Bind credentials on all nodes (including the 4 model subnodes and HTTP profile read). Fill in the 5 fields on `WorkflowConfig` (`customerEmail`, `receiverEmail`, `inputLabelId`, `triagedLabelId`, `reviewLabelId`), fill in the 2 fields on `GetOrderConfig` (`spreadsheetId`, `sheetGid`), and select the sub-workflows from the dropdowns on `GetOrderDeterministically` and `RecoverThroughMain` using [`docs/rebinding-map.md`](docs/rebinding-map.md).
 6. **Publish Callable Sub-Workflow:** Validate and publish `GetOrder` before activating the main workflow.
 7. **Supervised Test:** Send a test email from your controlled sender with the `demo-input` label applied, activate `DraftOrderStatusReply` for one supervised poll cycle, verify the resulting Gmail draft, labels, and `Completed` ledger row, then deactivate the main workflow.
 
@@ -146,7 +145,7 @@ Follow the full instructions in [Setup and Rebinding](docs/setup-and-rebinding.m
 | [`docs/demo-test-cases.md`](docs/demo-test-cases.md) | Specification of the 10 end-to-end functional scenarios (`S01`–`S10`) |
 | [`workflows/harness/`](workflows/harness/) | Optional model-evaluation and live end-to-end regression harness workflows |
 | [`src/`](src/) | Shared deterministic policy modules, order validator, and model/expression contracts |
-| [`tests/`](tests/) | Offline unit/policy suite (`run-regression.js`), recovery checks (`check-recovery.js`), source-linkage audit (`check-source-linkage.js`), and test fixtures |
+| [`tests/`](tests/) | Offline unit/policy suite (`run-regression.js`), recovery checks (`check-recovery.js`), source-linkage audit (`check-source-linkage.js`), harness checks (`check-harness.js`), and test fixtures |
 | [`docs/testing-guide.md`](docs/testing-guide.md) | Consolidated offline, model-evaluation, and live end-to-end testing guide |
 
 ---
@@ -159,11 +158,13 @@ Requires Node.js (built-in modules only; no `npm install` or network access need
 node tests/run-regression.js
 node tests/check-recovery.js
 node tests/check-source-linkage.js workflows/main-workflow.json workflows/get-order.json workflows/notify-order-status-error.json
+node tests/check-harness.js
 ```
 
-- `run-regression.js` runs **261 unit/policy test cases** and **3 static audits**.
-- `check-recovery.js` runs **74 offline recovery, guard, and snapshot checks**.
+- `run-regression.js` runs **264 unit/policy test cases** and **3 static audits**.
+- `check-recovery.js` runs **75 offline recovery, guard, and snapshot checks**.
 - `check-source-linkage.js` verifies that **16 inline runtime expressions** across `main-workflow.json`, `get-order.json`, and `notify-order-status-error.json` and **both model stage prompts/schemas/settings** match the shared policy libraries.
+- `check-harness.js` verifies structural, expression, safety-gate, Data Table mappings, and swimlane-layout invariants across all 4 harness workflows in `workflows/harness/` (`run-order-status-regression.json`, `observe-order-status-case.json`, `sender-callable.json`, `evaluation-workflow.json`).
 
 ---
 
@@ -206,7 +207,7 @@ Two captioned recordings accompany this package:
 | Recording | Loom Link |
 | --- | --- |
 | **Order Status Reply Drafter — Demo** (`n8n-OrderStatusReplyDrafter-demo-captioned`) — end-to-end processing of labeled test emails into verified Gmail drafts and manual-review routing | [Watch on Loom](https://www.loom.com/share/14d2cffc42b64e948d60d1af9de14328) |
-| **System Design Walkthrough** (`n8n-OrderStatusReplyDrafter-system-design-walkthrough-captioned`) — canvas tour of the nine numbered phases (`00`–`08`), the safety gates, the PostgreSQL ledger, and supervised recovery | [Watch on Loom](https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152) |
+| **System Design Walkthrough** (`n8n-OrderStatusReplyDrafter-system-design-walkthrough-captioned`) — canvas tour (recorded on the prior `00`–`08` swimlane layout) covering the safety gates, the PostgreSQL ledger, and supervised recovery | [Watch on Loom](https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152) |
 
 ---
 
