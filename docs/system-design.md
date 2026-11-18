@@ -1,6 +1,6 @@
 # Order-Status Reply Drafter — as-built system design
 
-**Client as-built design · 2026-10-21 · Asia/Jakarta.** This copy describes the delivered, verified configuration. It is not a fresh live inspection and not a destination deployment. It carries the same architectural and contract explanations as the source design, with package-local evidence links.
+**Client as-built design · Updated 2026-11-17 (initial baseline 2026-10-21) · Asia/Jakarta.** This copy describes the delivered, verified configuration. It is not a fresh live inspection and not a destination deployment. It carries the same architectural and contract explanations as the source design, with package-local evidence links.
 
 **Where the facts come from.** When sources disagree, trust them in this order:
 
@@ -23,7 +23,7 @@ A later source closure recorded a native main export that differs from the packa
 4. [Data and interface contracts](#4-data-and-interface-contracts)
 5. [Models and deterministic policy](#5-models-and-deterministic-policy)
 6. [Transactions, ownership and concurrency](#6-transactions-ownership-and-concurrency)
-7. [Failure handling and supervised recovery](#7-failure-handling-and-supervised-recovery)
+7. [Failure handling and bounded automated and manual recovery](#7-failure-handling-and-bounded-automated-and-manual-recovery)
 8. [Security, privacy and access](#8-security-privacy-and-access)
 9. [Verification and change management](#9-verification-and-change-management)
 10. [Operations, deployment and handoff](#10-operations-deployment-and-handoff)
@@ -52,7 +52,7 @@ Orders come from a synthetic six-column Google Sheet. Attachments are not downlo
 - `draft_ready`: one fixed clarification or one order-aware draft was saved in the source thread and read back successfully, the required source labels were verified, and the ledger reached Completed. A clarification is still only a draft for a person to review; it is not a sent question.
 - `manual_review`: no draft was created, and both the needs-review and triaged source labels were verified before the ledger was completed. Review reasons stay in execution context; the labels do not encode the full reason.
 
-**What “not done” means.** A skipped source (`AlreadyCompleted` or `OwnershipConflict`) authorizes no business processing. An unresolved technical failure is not a review success and must never be reported as completed. So, on top of the business routing requirements, reliability requires atomic ownership, durable write intent, saved identity, verified completion and supervised recovery.
+**What “not done” means.** A skipped source (`AlreadyCompleted` or `OwnershipConflict`) authorizes no business processing. An unresolved technical failure is not a review success and must never be reported as completed. So, on top of the business routing requirements, reliability requires atomic ownership, durable write intent, saved identity, verified completion and bounded automated and manual recovery.
 
 **Out of scope for the delivered system:**
 
@@ -195,7 +195,7 @@ The main canvas is organized into **8 stacked horizontal swimlanes** (`115` tota
 
 | Swimlane | Responsibility |
 | --- | --- |
-| **`RecoveryLane` (Supervised recovery & resume)** | Read source, ledger and execution evidence, reconcile uncertain drafts, transfer ownership, and resume at the recorded phase |
+| **`RecoveryLane` (Automated & manual recovery)** | Read source, ledger and execution evidence, reconcile uncertain drafts, transfer ownership, and resume at the recorded phase |
 | **`Stage 1` — Receive inquiry** | Authenticate mailbox/source, acquire atomic PostgreSQL ownership, and route resumed phases |
 | **`Stage 2` — Classify & extract** | Clean question, validate input/sender, extract and route order intent across Groq and OpenRouter |
 | **`Stage 3` — Lookup order** | Exact deterministic lookup via `GetOrder` and sender ownership check |
@@ -647,7 +647,7 @@ A crash can also leave status `Running`, because no error handler ran.
 
 Keeping completed keys is part of correctness. Deleting them, recreating the table, changing the mailbox namespace or a bad migration can make old messages eligible again. Preserve keys and evidence through backups and migrations. No reset or purge implementation is included.
 
-## 7. Failure handling and supervised recovery
+## 7. Failure handling and bounded automated and manual recovery
 
 **Recording failures and alerting boundary.** `UnfinishedWork` is where handled failures converge. `RecordUnfinishedWork` (`onError: "continueErrorOutput"`) calls `checkpoint_order_status_request(action='failure')` for the current owner while the row is `Running`, preserving the actual current phase:
 
@@ -844,8 +844,8 @@ There are three reusable test types. They answer different questions, so do not 
 | Type and artifact | How it is invoked and what it proves | Recorded provenance and limits |
 | --- | --- | --- |
 | Direct policy tests, [package](testing-guide.md) | `node tests/run-regression.js` from this package folder; independent expected fixtures call shared policy functions | Current 264 cases (78 order-validator, 186 other policy, including 15 error-alert formatting/redaction cases) plus three separate static/source audits; historical model-package/refactor records from 2026-10-19, reconfirmed offline at closure. Not whole-graph integration |
-| Model-only evaluation, [export/cases](../workflows/harness/evaluation-workflow.json) | Reconstruct eight rows, bind Groq/table, use native Evaluation Trigger/Evaluate all following package guide | Eight real cases: five extraction, three drafting; 8/8, eight observed calls / 3,892 tokens. No new model calls for unchanged reliability-layer prompts; no route/save/recovery/failover proof |
-| Actual-main end-to-end, [runner/observer/Sender](testing-guide.md) | Configure selected validated versions and readiness, then manually Execute runner once | Final reliability run 2026-10-20: ten real sources, six approved drafts, four reviews, 10/10 PASS, starting state restored. Real services, bounded controlled conditions |
+| Model-only evaluation, [export/cases](../workflows/harness/evaluation-workflow.json) | Reconstruct eight rows, bind Groq/table, use native Evaluation Trigger/Evaluate all following package guide | Eight real cases (re-verified 2026-11-17): five extraction, three drafting; 8/8 PASS, eight observed calls / 3,892 tokens. No route/save/recovery/failover proof |
+| Actual-main end-to-end, [runner/observer/Sender](testing-guide.md) | Configure selected validated versions and readiness, then manually Execute runner once | Latest regression run 2026-11-17 (following the 2026-10-20 baseline): ten real sources, six approved drafts, four reviews, 10/10 PASS, starting state restored. Real services, bounded controlled conditions |
 
 **Demo Essentials** is only `mode:"demo"`. It selects S01, S04, S06 and S08 from the same ten cases and assertions (two drafts, two reviews). It is neither a fourth test type nor another application implementation. Retained full-regression evidence can supply the four scenes without another send batch.
 
@@ -970,7 +970,7 @@ Availability depends on:
 - Sheets reads,
 - PostgreSQL,
 - the model providers, and
-- for supervised recovery, execution API evidence.
+- for bounded automated and manual recovery, execution API evidence.
 
 Provider fallback can reduce one model failure domain. It does not cover failure of Gmail, Sheets, the database or the host, or rate limits that span services.
 
@@ -1002,7 +1002,7 @@ Possible growth work includes real-store connectors, stronger customer authentic
 | PostgreSQL ledger | Uniqueness and conditional row updates arbitrate overlapping source work. A lookup-then-insert/Data Table approximation would not establish the same exclusion; adds installation/private data obligations |
 | Shared validation/save/confirmation | Both providers and fixed templates pass one deterministic boundary; reduces policy drift, at cost of explicit context restoration |
 | Explicit fallback | Makes allowed operational error recovery and provider provenance visible. Blind retries/parse retries could hide bad output and multiply calls; underlying SDK behavior remains partly unverified |
-| Eight stacked horizontal swimlanes (`RecoveryLane`, `Stage 1`–`Stage 6`, `ErrorLane`) | Organizes the main workflow around the 6-step business pipeline with supervised recovery at the top and error retention at the bottom, while keeping single-workflow execution and all existing node names/IDs intact |
+| Eight stacked horizontal swimlanes (`RecoveryLane`, `Stage 1`–`Stage 6`, `ErrorLane`) | Organizes the main workflow around the 6-step business pipeline with automated and manual recovery at the top and error retention at the bottom, while keeping single-workflow execution and all existing node names/IDs intact |
 | Bounded automated & manual recovery | Automates transient self-healing (`find_recoverable_order_status_requests`, `max_attempts = 1`, 60s write-settle window, 10m zombie timeout, and `ReconcileUncertainDraft` across `thread.get` + `draft.getAll`) while parking ambiguous/exhausted cases in `NeedsInspection` for manual operator override |
 | Layered tests with independent evidence | Cheap direct policies, focused real model stages and actual-main service proof answer different questions. A full mirrored application graph was retired because it could drift |
 
