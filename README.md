@@ -16,7 +16,7 @@ Built with **n8n**, **Gmail**, **Google Sheets**, **Supabase PostgreSQL**, **Gro
 - [Example Outcomes](#example-outcomes)
 - [How It Works](#how-it-works)
 - [Safety & Reliability Design](#safety--reliability-design)
-- [Supervised Recovery](#supervised-recovery)
+- [Automated & Manual Recovery](#automated--manual-recovery)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
 - [Package Contents](#package-contents)
@@ -68,7 +68,7 @@ The main workflow canvas is organized into **6 Business Stages** (`Stage 1`–`S
 4. **Stage 4 — Prepare Reply (`Stage4Lane`)** — Uses fixed templates for missing or unknown order numbers. For verified owned orders, calls Groq (with OpenRouter fallback) using only verified order fields, then runs deterministic checks (non-empty text, required tracking number present, no URLs).
 5. **Stage 5 — Save Gmail Draft (`Stage5Lane`)** — Re-verifies the recipient against the allowlist, records draft intent (`DraftIntentRecorded`) in PostgreSQL before calling Gmail, creates the draft, checkpoints the returned `draft_id` and `draft_message_id` (`DraftSaved`), and reads the draft back from Gmail to confirm recipient, thread, subject, body, and absence of extra `CC`/`BCC`.
 6. **Stage 6 — Triage Source Email (`Stage6Lane`)** — Checkpoints `LabelsPending`, applies `triaged` (and `needs-review` for manual-review outcomes), reads the source message back to confirm the labels are present, and marks the ledger row `Completed`.
-7. **Error Handling (`ErrorLane`) & Supervised Recovery (`RecoveryLane`)** — If a handled failure occurs after claim, `ErrorLane` records `NeedsRecovery` or `NeedsInspection` at the current ledger phase (suppressing immediate alerts on first-time transient failures and stopping visibly on terminal issues), while `RecoveryLane` reconciles evidence and resumes at the recorded phase when invoked by `RecoverOrderStatusRequest`.
+7. **Error Handling (`ErrorLane`) & Automated / Manual Recovery (`RecoveryLane`)** — If a handled failure occurs after claim, `ErrorLane` records `NeedsRecovery` or `NeedsInspection` at the current ledger phase (suppressing immediate alerts on first-time transient failures and stopping visibly on terminal issues), while `RecoveryLane` reconciles evidence and resumes at the recorded phase when invoked by `RecoverOrderStatusRequest`.
 
 ---
 
@@ -85,7 +85,7 @@ The main workflow canvas is organized into **6 Business Stages** (`Stage 1`–`S
 
 ---
 
-## Supervised Recovery
+## Automated & Manual Recovery
 
 First-time transient post-claim failures (`status = 'NeedsRecovery'`, `recovery_attempts = 0`) exit quietly so `RecoverOrderStatusRequest` can self-heal them on its 5-minute schedule. When human intervention is required—such as terminal `NeedsInspection` / quarantine transitions, pre-claim/trigger failures, or sweeper outages—`NotifyOrderStatusError` posts a sanitized Slack alert to `#order-status-drafter-alerts` and the operator uses `RecoverOrderStatusRequest` after inspecting the ledger row, confirming the prior n8n execution is terminal, and verifying Gmail state:
 
@@ -184,10 +184,10 @@ Recorded verification in the controlled source environment:
 | --- | --- |
 | **Offline Policy & Validator Suite** | **264 / 264 passed** + 3 static/source audits |
 | **Offline Recovery & Guard Checks** | **75 / 75 passed** (plus 107 observer/control checks) |
-| **Offline Source-Linkage & E2E Harness Audits** | **16 / 16 expressions matched** · **10 / 10 harness checks passed** |
+| **Offline Source-Linkage & E2E Harness Audits** | **16 / 16 expressions + both model definitions matched** · **10 / 10 harness checks passed** |
 | **Native Model-Stage Evaluation** | **8 / 8 passed** on Groq `qwen/qwen3.8-27b` (5 extraction, 3 drafting; 8 calls, 3,892 total tokens) |
 | **End-to-End Functional Regression** | **10 / 10 passed** (`S01`–`S10`: 6 verified drafts, 4 manual reviews, 0 customer emails sent, initial workflow state restored) |
-| **Focused Reliability Proofs** | Overlapping concurrent claim exclusion, same-draft recovery, review-label recovery, completed-source skip, and uncertain-write refusal (`DraftIntentRecorded` with simulated checkpoint loss) |
+| **Focused Reliability Proofs** | Overlapping concurrent claim exclusion, same-draft recovery, review-label recovery, completed-source skip, and manual uncertain-write refusal (`DraftIntentRecorded` with simulated checkpoint loss) |
 
 ---
 

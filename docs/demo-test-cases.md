@@ -1,6 +1,6 @@
 # End-to-End Functional Test Cases (S01–S10)
 
-**Recorded Source Environment Result (October 20, 2026): `10/10 PASS` · 6 Drafts Created · 4 Manual Reviews · 0 Customer Replies Sent · Initial State Restored.**
+**Recorded Source Environment Result (Latest: November 17, 2026 · Baseline: October 20, 2026): `10/10 PASS` · 6 Drafts Created · 4 Manual Reviews · 0 Customer Replies Sent · Initial State Restored.**
 
 This document specifies the 10 end-to-end functional scenarios (`S01`–`S10`) executed by the regression runner ([`docs/testing-guide.md`](testing-guide.md)) against synthetic orders and controlled accounts.
 
@@ -47,7 +47,7 @@ A test case passes only when its scenario-specific criteria **and** all shared o
 
 ## Suite-Level Pass Requirements & Scope Notes
 
-- **Suite PASS:** Requires all 10 cases to be sent and pass, zero session errors, unchanged main/child workflow versions throughout the run, and restoration of the main workflow's initial active/inactive state. (Human review of draft prose quality is tracked separately; all 6 generated drafts in the recorded run were human-reviewed and approved.)
+- **Suite PASS:** Requires all 10 cases to be sent and pass, zero session errors, unchanged main/child workflow versions throughout the run, and restoration of the main workflow's initial active/inactive state. (Human review of draft prose quality is tracked separately; all 6 generated drafts in the recorded runs were human-reviewed and approved.)
 - **Demo Mode (`mode: "demo"`):** Runs the 4-case subset `S01`, `S04`, `S06`, and `S08` (2 drafts + 2 manual reviews) using the exact same fixtures and observer assertions.
 - **Scope boundaries:** `S07` tests a specific instruction-override fixture (not universal prompt-injection immunity), and `S08` tests email-header consistency (not strong customer authentication).
 
