@@ -430,9 +430,10 @@
         justify-content: center;
         gap: var(--s2);
         min-height: 44px;
-        padding: 0 22px;
+        padding: 10px 22px;
         border-radius: var(--r-pill);
-        font: 600 0.94rem var(--font);
+        font: 600 0.94rem / 1.25 var(--font);
+        text-align: center;
         cursor: pointer;
         border: 1px solid transparent;
         transition:
@@ -440,7 +441,6 @@
           background 0.2s var(--ease),
           border-color 0.2s var(--ease),
           box-shadow 0.2s var(--ease);
-        white-space: nowrap;
       }
       .btn:hover {
         text-decoration: none;
@@ -467,6 +467,7 @@
         min-height: 36px;
         padding: 0 14px;
         font-size: 0.82rem;
+        white-space: nowrap;
       }
       .arrow-link {
         display: inline-flex;
@@ -936,7 +937,7 @@
         border-left: 1px dashed var(--warn-border);
       }
       .flow.side {
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
         gap: var(--s4);
       }
       .flow li.side-li {
@@ -962,6 +963,9 @@
         display: grid;
         gap: var(--s6);
         align-items: start;
+      }
+      .canvas-overview > * {
+        min-width: 0;
       }
       @media (min-width: 960px) {
         .canvas-overview {
@@ -994,6 +998,8 @@
         border: 1px solid var(--line);
         background: var(--surface);
         overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
       }
       .chrome.elevated {
         box-shadow: 0 40px 120px -40px rgba(0, 0, 0, 0.6);
@@ -1066,78 +1072,216 @@
         }
       }
 
-      /* Lightbox dialog */
+      /* Pan-and-zoom lightbox dialog */
       dialog.lightbox {
         width: 100%;
         max-width: 100%;
         height: 100dvh;
         max-height: 100dvh;
         margin: 0;
-        padding: var(--s5);
+        padding: 0;
         border: 0;
         background: var(--backdrop);
         color: var(--ink);
-        overflow-y: auto;
+        overflow: hidden;
+      }
+      dialog.lightbox[open] {
+        display: flex;
+        flex-direction: column;
       }
       dialog.lightbox::backdrop {
         background: var(--backdrop);
       }
       .lb-bar {
-        position: sticky;
-        top: 0;
+        flex: none;
         z-index: 2;
-        max-width: min(1600px, 96vw);
-        margin: 0 auto var(--s4);
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--s3);
-        padding: var(--s2) var(--s4);
-        border-radius: var(--r);
+        padding: var(--s3) var(--s4);
         background: var(--surface);
-        border: 1px solid var(--line-2);
+        border-bottom: 1px solid var(--line-2);
       }
-      .lb-bar span {
+      .lb-title {
         font: 400 12px / 1.3 var(--mono);
         color: var(--mute);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
       }
-      .lb-scroll {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+      .lb-tools {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
       }
-      .lb-img {
-        display: block;
-        width: min(1600px, 96vw);
-        height: auto;
-        margin: 0 auto var(--s7);
-        border-radius: var(--r);
+      .lb-btn {
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: var(--r-sm);
         border: 1px solid var(--line-2);
+        background: var(--surface-2);
+        color: var(--ink);
+        font: 500 12.5px / 1 var(--mono);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          border-color 0.16s var(--ease),
+          background 0.16s var(--ease);
       }
-      .lb-img.is-wide {
-        width: max(1800px, 96vw);
-        max-width: 2600px;
+      .lb-btn:hover {
+        border-color: var(--accent);
+        background: var(--bg);
+      }
+      .lb-zoom {
+        min-width: 44px;
+        text-align: center;
+        font: 400 12px / 1 var(--mono);
+        color: var(--mute);
+        font-variant-numeric: tabular-nums;
+      }
+      .lb-stage {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        touch-action: none;
+        user-select: none;
+        cursor: grab;
+      }
+      .lb-stage.is-dragging {
+        cursor: grabbing;
+      }
+      .lb-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .lb-loading {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        padding: 8px 14px;
+        border-radius: var(--r-pill);
+        background: var(--surface);
+        border: 1px solid var(--line-2);
+        font: 400 12px / 1.2 var(--mono);
+        color: var(--body);
+        pointer-events: none;
+      }
+      .lb-hint {
+        position: absolute;
+        left: 50%;
+        bottom: var(--s4);
+        transform: translateX(-50%);
+        max-width: calc(100% - 24px);
+        padding: 6px 12px;
+        border-radius: var(--r-pill);
+        background: var(--chip-bg);
+        border: 1px solid var(--line-2);
+        font: 400 11.5px / 1.3 var(--mono);
+        color: var(--mute);
+        text-align: center;
+        pointer-events: none;
+        transition: opacity 0.25s var(--ease);
+      }
+      .lb-hint.is-hidden {
+        opacity: 0;
+      }
+      .lb-hint-sm {
+        display: none;
+      }
+      @media (max-width: 520px) {
+        .lb-zoom,
+        .lb-title,
+        .lb-hint-lg {
+          display: none;
+        }
+        .lb-hint-sm {
+          display: inline;
+        }
+        .lb-bar {
+          justify-content: flex-end;
+        }
       }
 
       /* Section 2: Outcome explorer (Inbox + Gmail draft card) */
       .sim {
         display: grid;
-        gap: var(--s5);
+        gap: var(--s4);
         margin-top: var(--s7);
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
       }
-      @media (min-width: 860px) {
-        .sim {
-          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-        }
+      .sim-mobile {
+        display: grid;
+        gap: var(--s3);
+      }
+      .sim-select {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 14px;
+        border-radius: var(--r);
+        border: 1px solid var(--line-2);
+        background: var(--surface);
+        color: var(--ink);
+        font: 500 0.92rem / 1.3 var(--font);
+        cursor: pointer;
+      }
+      .sim-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--s2);
+      }
+      .sim-nav button {
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: var(--r-pill);
+        border: 1px solid var(--line-2);
+        background: var(--surface);
+        color: var(--ink);
+        font: 500 0.82rem / 1 var(--mono);
+        cursor: pointer;
+        transition:
+          border-color 0.16s var(--ease),
+          background 0.16s var(--ease);
+      }
+      .sim-nav button:hover {
+        border-color: var(--accent);
+        background: var(--surface-2);
+      }
+      .sim-count {
+        font: 500 12px / 1 var(--mono);
+        color: var(--mute);
+        font-variant-numeric: tabular-nums;
       }
       .tabs {
-        display: flex;
+        display: none;
         flex-direction: column;
         background: var(--surface);
         border: 1px solid var(--line);
         border-radius: var(--r);
         overflow: hidden;
+      }
+      @media (min-width: 860px) {
+        .sim {
+          gap: var(--s5);
+          grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+        }
+        .sim-mobile {
+          display: none;
+        }
+        .tabs {
+          display: flex;
+        }
       }
       .tabs button {
         display: flex;
@@ -1197,9 +1341,14 @@
         border: 1px solid var(--line);
         border-radius: var(--r);
         overflow: hidden;
-        position: sticky;
-        top: 76px;
-        min-height: 320px;
+        min-height: 260px;
+      }
+      @media (min-width: 860px) {
+        .panel {
+          position: sticky;
+          top: 76px;
+          min-height: 320px;
+        }
       }
       .panel-head {
         padding: var(--s3) var(--s5);
@@ -1267,7 +1416,7 @@
         display: grid;
         gap: var(--s4);
         margin-top: var(--s7);
-        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
       }
       .tile {
         background: var(--paper-surface);
@@ -1335,7 +1484,7 @@
         display: grid;
         gap: var(--s4);
         margin-top: var(--s4);
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
       }
       .paper-details h4 {
         font-size: 0.96rem;
@@ -1472,7 +1621,7 @@
         display: grid;
         gap: var(--s5);
         margin-top: var(--s7);
-        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
       }
       .door {
         background: var(--surface);
@@ -1601,6 +1750,9 @@
         margin-top: var(--s6);
         align-items: start;
       }
+      .two > * {
+        min-width: 0;
+      }
       @media (min-width: 900px) {
         .two {
           grid-template-columns: 1.1fr 1fr;
@@ -1647,9 +1799,11 @@
         margin-top: var(--s7);
         display: grid;
         gap: var(--s6);
+        grid-template-columns: minmax(0, 1fr);
       }
       .closeup-fig {
         margin: 0;
+        min-width: 0;
       }
       .closeup-head {
         display: flex;
@@ -1700,7 +1854,7 @@
         display: grid;
         gap: var(--s4);
         margin-top: var(--s7);
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
       }
       .res3 > div {
         background: var(--surface);
@@ -2102,6 +2256,18 @@
             mouse or arrow keys to switch cases.
           </p>
           <div class="sim reveal">
+            <div class="sim-mobile">
+              <select
+                class="sim-select"
+                id="case-select"
+                aria-label="Choose an incoming email scenario"
+              ></select>
+              <div class="sim-nav">
+                <button type="button" id="case-prev">&larr; Prev</button>
+                <span class="sim-count" id="case-count">1 / 10</span>
+                <button type="button" id="case-next">Next &rarr;</button>
+              </div>
+            </div>
             <div
               class="tabs"
               role="tablist"
@@ -2749,17 +2915,14 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     data-lb-src="canvas-stage1.jpg"
-                    data-lb-title="Stage 1 · Receive inquiry (2600×531 — scroll to inspect)"
+                    data-lb-title="Stage 1 · Receive inquiry (3600×736)"
                     data-lb-alt="Full Stage 1 n8n canvas strip showing ReceivePendingDemo through ClaimSourceAtomically, OwnerAcquired, OwnedRequest, ResumeRecordedPhase and ReturnSkippedRequest."
-                    data-lb-w="2600"
-                    data-lb-h="531"
-                    data-lb-wide="1"
                     aria-label="Zoom Stage 1 n8n canvas strip"
                   >
                     <img
                       src="canvas-stage1.jpg"
-                      width="2600"
-                      height="531"
+                      width="3600"
+                      height="736"
                       loading="lazy"
                       alt="Full Stage 1 n8n canvas strip showing ReceivePendingDemo through ClaimSourceAtomically, OwnerAcquired, OwnedRequest, ResumeRecordedPhase and ReturnSkippedRequest."
                     />
@@ -2802,17 +2965,14 @@
                     target="_blank"
                     rel="noopener noreferrer"
                     data-lb-src="canvas-stage5.jpg"
-                    data-lb-title="Stage 5 · Save Gmail draft (2600×321 — scroll to inspect)"
+                    data-lb-title="Stage 5 · Save Gmail draft (3600×444)"
                     data-lb-alt="Full Stage 5 n8n canvas strip showing SharedReplyContext through RecordDraftIntent, SaveReviewDraft, RecordSavedDraft, ReadSavedDraft, ConfirmSavedDraft and DraftWriteConfirmed."
-                    data-lb-w="2600"
-                    data-lb-h="321"
-                    data-lb-wide="1"
                     aria-label="Zoom Stage 5 n8n canvas strip"
                   >
                     <img
                       src="canvas-stage5.jpg"
-                      width="2600"
-                      height="321"
+                      width="3600"
+                      height="444"
                       loading="lazy"
                       alt="Full Stage 5 n8n canvas strip showing SharedReplyContext through RecordDraftIntent, SaveReviewDraft, RecordSavedDraft, ReadSavedDraft, ConfirmSavedDraft and DraftWriteConfirmed."
                     />
@@ -2963,30 +3123,53 @@
       </div>
     </footer>
 
-    <!-- Lazy click-to-zoom lightbox for full canvas & stage close-ups -->
+    <!-- Lazy pan-and-zoom lightbox for full canvas & stage close-ups -->
     <dialog
       class="lightbox"
       id="canvas-dialog"
       aria-label="Zoomed n8n workflow canvas"
     >
       <div class="lb-bar">
-        <span id="lb-title"
-          >n8n &middot; OrderStatusReplyDrafter (4400&times;5987 &mdash; scroll
-          to inspect)</span
+        <span class="lb-title" id="lb-title"
+          >n8n &middot; OrderStatusReplyDrafter</span
         >
-        <button class="btn btn-sec btn-sm" type="button" id="close-canvas-btn">
-          Close (Esc)
-        </button>
+        <div class="lb-tools">
+          <button
+            class="lb-btn"
+            type="button"
+            id="lb-out"
+            aria-label="Zoom out"
+          >
+            &minus;
+          </button>
+          <span class="lb-zoom" id="lb-zoom">100%</span>
+          <button class="lb-btn" type="button" id="lb-in" aria-label="Zoom in">
+            +
+          </button>
+          <button class="lb-btn" type="button" id="lb-fit">Fit</button>
+          <button class="lb-btn" type="button" id="close-canvas-btn">
+            Close
+          </button>
+        </div>
       </div>
-      <div class="lb-scroll" id="lb-scroll">
-        <img
-          class="lb-img"
-          id="canvas-full-img"
-          data-src="main-workflow-full.jpg"
-          width="4400"
-          height="5987"
-          alt="Full-resolution n8n canvas of the Order Status Reply Drafter showing Recovery, Stages 1 to 6, and Error Handling."
-        />
+      <div class="lb-stage" id="lb-stage">
+        <canvas
+          class="lb-canvas"
+          id="lb-canvas"
+          role="img"
+          aria-label="Full-resolution n8n canvas"
+        ></canvas>
+        <span class="lb-loading" id="lb-loading" hidden
+          >Loading full canvas&hellip;</span
+        >
+        <span class="lb-hint" id="lb-hint" aria-hidden="true"
+          ><span class="lb-hint-lg"
+            >Drag to pan &middot; Scroll / pinch to zoom &middot;
+            Double-click</span
+          ><span class="lb-hint-sm"
+            >Drag &middot; Pinch &middot; Double-tap</span
+          ></span
+        >
       </div>
     </dialog>
 
@@ -3137,44 +3320,176 @@
           });
         });
 
-        /* lazy native <dialog> lightbox for full 4400px canvas & stage close-ups */
+        /* lazy n8n-style HiDPI <canvas> pan-and-zoom <dialog> lightbox */
         var dlg = document.getElementById("canvas-dialog");
-        var fullImg = document.getElementById("canvas-full-img");
+        var lbCanvas = document.getElementById("lb-canvas");
+        var lbCtx = lbCanvas && lbCanvas.getContext ? lbCanvas.getContext("2d") : null;
         var lbTitle = document.getElementById("lb-title");
-        var lbScroll = document.getElementById("lb-scroll");
+        var lbStage = document.getElementById("lb-stage");
+        var lbZoom = document.getElementById("lb-zoom");
+        var lbHint = document.getElementById("lb-hint");
+        var lbLoading = document.getElementById("lb-loading");
+        var lbIn = document.getElementById("lb-in");
+        var lbOut = document.getElementById("lb-out");
+        var lbFit = document.getElementById("lb-fit");
         var openBtn = document.getElementById("open-canvas-btn");
         var openLink = document.getElementById("open-canvas-link");
         var closeBtn = document.getElementById("close-canvas-btn");
         var lastTrigger = null;
 
+        var imgCache = {};
+        var curImg = null;
+        var curSrc = "";
+        var fitScale = 1,
+          zScale = 1,
+          zX = 0,
+          zY = 0;
+        var MIN_Z = 1;
+        var rafPending = false;
+
+        function computeFit() {
+          if (!lbStage || !curImg || !curImg.naturalWidth) return;
+          var sw = lbStage.clientWidth || 320;
+          var sh = lbStage.clientHeight || 480;
+          fitScale = Math.min(
+            (sw * 0.94) / curImg.naturalWidth,
+            (sh * 0.9) / curImg.naturalHeight,
+          );
+        }
+        function getMaxZoom() {
+          return Math.max(6, Math.min(24, 1.8 / (fitScale || 0.1)));
+        }
+        function getMetrics() {
+          var sw = lbStage ? lbStage.clientWidth : 0;
+          var sh = lbStage ? lbStage.clientHeight : 0;
+          var abs = fitScale * zScale;
+          var dw = curImg && curImg.naturalWidth ? curImg.naturalWidth * abs : 0;
+          var dh = curImg && curImg.naturalHeight ? curImg.naturalHeight * abs : 0;
+          return { sw: sw, sh: sh, dw: dw, dh: dh };
+        }
+        function clampPan() {
+          var m = getMetrics();
+          if (!m.sw || !m.dw) return;
+          var maxX = Math.abs(m.dw - m.sw) / 2;
+          var maxY = Math.abs(m.dh - m.sh) / 2;
+          zX = Math.max(-maxX, Math.min(maxX, zX));
+          zY = Math.max(-maxY, Math.min(maxY, zY));
+        }
+        function hideHint() {
+          if (lbHint) lbHint.classList.add("is-hidden");
+        }
+        function drawNow() {
+          rafPending = false;
+          if (!lbCtx || !lbStage || !lbCanvas) return;
+          var sw = lbStage.clientWidth;
+          var sh = lbStage.clientHeight;
+          if (!sw || !sh) return;
+          var dpr = Math.min(window.devicePixelRatio || 1, 3);
+          var bw = Math.round(sw * dpr);
+          var bh = Math.round(sh * dpr);
+          if (lbCanvas.width !== bw || lbCanvas.height !== bh) {
+            lbCanvas.width = bw;
+            lbCanvas.height = bh;
+          }
+          lbCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          lbCtx.clearRect(0, 0, sw, sh);
+          if (!curImg || !curImg.complete || !curImg.naturalWidth) return;
+          clampPan();
+          lbCtx.imageSmoothingEnabled = true;
+          lbCtx.imageSmoothingQuality = "high";
+          var abs = fitScale * zScale;
+          var dw = curImg.naturalWidth * abs;
+          var dh = curImg.naturalHeight * abs;
+          var dx = sw / 2 + zX - dw / 2;
+          var dy = sh / 2 + zY - dh / 2;
+          lbCtx.drawImage(curImg, dx, dy, dw, dh);
+        }
+        function scheduleDraw() {
+          if (lbZoom) lbZoom.textContent = Math.round(zScale * 100) + "%";
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(drawNow);
+          }
+        }
+        function resetZoom() {
+          computeFit();
+          zScale = 1;
+          zX = 0;
+          zY = 0;
+          scheduleDraw();
+        }
+        function zoomAround(nextScale, clientX, clientY) {
+          nextScale = Math.max(MIN_Z, Math.min(getMaxZoom(), nextScale));
+          if (!lbStage || !curImg || !curImg.naturalWidth) return;
+          hideHint();
+          var rect = lbStage.getBoundingClientRect();
+          var m = getMetrics();
+          var localX = clientX - rect.left;
+          var localY = clientY - rect.top;
+          var dx = m.sw / 2 + zX - m.dw / 2;
+          var dy = m.sh / 2 + zY - m.dh / 2;
+          var clampedX = Math.max(dx, Math.min(dx + m.dw, localX));
+          var clampedY = Math.max(dy, Math.min(dy + m.dh, localY));
+          var cx = clampedX - m.sw / 2;
+          var cy = clampedY - m.sh / 2;
+          var ratio = nextScale / zScale;
+          zX = cx - (cx - zX) * ratio;
+          zY = cy - (cy - zY) * ratio;
+          zScale = nextScale;
+          clampPan();
+          scheduleDraw();
+        }
+
         var FULL_CANVAS = {
           src: "main-workflow-full.jpg",
-          title:
-            "n8n \u00b7 OrderStatusReplyDrafter (4400\u00d75987 \u2014 scroll to inspect)",
+          title: "n8n \u00b7 OrderStatusReplyDrafter (4400\u00d75987)",
           alt: "Full-resolution n8n canvas of the Order Status Reply Drafter showing Recovery, Stages 1 to 6, and Error Handling.",
-          w: "4400",
-          h: "5987",
-          wide: false,
         };
 
         function openLightbox(trigger, opts) {
-          if (!dlg || typeof dlg.showModal !== "function") return false;
+          if (!dlg || typeof dlg.showModal !== "function" || !lbCtx) return false;
           var cfg = opts || FULL_CANVAS;
           lastTrigger = trigger;
-          if (fullImg.getAttribute("src") !== cfg.src) {
-            fullImg.setAttribute("src", cfg.src);
-          }
-          fullImg.setAttribute("alt", cfg.alt);
-          fullImg.setAttribute("width", cfg.w);
-          fullImg.setAttribute("height", cfg.h);
-          fullImg.classList.toggle("is-wide", !!cfg.wide);
+          curSrc = cfg.src;
           if (lbTitle) lbTitle.textContent = cfg.title;
+          if (lbCanvas) lbCanvas.setAttribute("aria-label", cfg.alt);
+          if (lbHint) lbHint.classList.remove("is-hidden");
+
           dlg.showModal();
-          dlg.scrollTop = 0;
-          if (lbScroll) lbScroll.scrollLeft = 0;
           closeBtn.focus();
+
+          var img = imgCache[cfg.src];
+          if (!img) {
+            img = new Image();
+            img.decoding = "async";
+            imgCache[cfg.src] = img;
+            if (lbLoading) lbLoading.hidden = false;
+            curImg = null;
+            scheduleDraw();
+            img.onload = function () {
+              if (curSrc !== cfg.src) return;
+              curImg = img;
+              if (lbLoading) lbLoading.hidden = true;
+              resetZoom();
+            };
+            img.src = cfg.src;
+          } else if (img.complete && img.naturalWidth) {
+            curImg = img;
+            if (lbLoading) lbLoading.hidden = true;
+            resetZoom();
+          } else {
+            curImg = null;
+            if (lbLoading) lbLoading.hidden = false;
+            scheduleDraw();
+          }
           return true;
         }
+        window.addEventListener("resize", function () {
+          if (dlg && dlg.open && curImg) {
+            computeFit();
+            scheduleDraw();
+          }
+        });
         if (openBtn) {
           openBtn.addEventListener("click", function () {
             if (!openLightbox(openBtn, FULL_CANVAS)) {
@@ -3193,21 +3508,131 @@
               src: a.getAttribute("data-lb-src"),
               title: a.getAttribute("data-lb-title"),
               alt: a.getAttribute("data-lb-alt"),
-              w: a.getAttribute("data-lb-w"),
-              h: a.getAttribute("data-lb-h"),
-              wide: a.getAttribute("data-lb-wide") === "1",
             });
             if (opened) e.preventDefault();
           });
         });
+
+        if (lbStage && dlg) {
+          var pts = new Map();
+          var dragStart = null;
+          var pinchStart = null;
+          var moved = false;
+          var lastTap = 0;
+
+          lbStage.addEventListener(
+            "wheel",
+            function (e) {
+              e.preventDefault();
+              var factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+              zoomAround(zScale * factor, e.clientX, e.clientY);
+            },
+            { passive: false },
+          );
+
+          lbStage.addEventListener("pointerdown", function (e) {
+            if (e.button && e.button !== 0) return;
+            lbStage.setPointerCapture(e.pointerId);
+            pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            moved = false;
+            if (pts.size === 1) {
+              dragStart = { x: e.clientX - zX, y: e.clientY - zY };
+              lbStage.classList.add("is-dragging");
+            } else if (pts.size === 2) {
+              dragStart = null;
+              var arr = Array.from(pts.values());
+              var dist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+              pinchStart = {
+                dist: dist || 1,
+                scale: zScale,
+              };
+            }
+          });
+
+          lbStage.addEventListener("pointermove", function (e) {
+            if (!pts.has(e.pointerId)) return;
+            var prev = pts.get(e.pointerId);
+            if (Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 3) {
+              moved = true;
+            }
+            pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (pts.size === 1 && dragStart) {
+              if (moved) hideHint();
+              zX = e.clientX - dragStart.x;
+              zY = e.clientY - dragStart.y;
+              clampPan();
+              scheduleDraw();
+            } else if (pts.size === 2 && pinchStart) {
+              var arr = Array.from(pts.values());
+              var dist = Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+              var midX = (arr[0].x + arr[1].x) / 2;
+              var midY = (arr[0].y + arr[1].y) / 2;
+              zoomAround(pinchStart.scale * (dist / pinchStart.dist), midX, midY);
+            }
+          });
+
+          var endPtr = function (e) {
+            pts.delete(e.pointerId);
+            if (pts.size < 2) pinchStart = null;
+            if (pts.size === 1) {
+              var rem = Array.from(pts.values())[0];
+              dragStart = { x: rem.x - zX, y: rem.y - zY };
+            } else {
+              dragStart = null;
+              lbStage.classList.remove("is-dragging");
+            }
+          };
+          lbStage.addEventListener("pointerup", function (e) {
+            if (!moved && pts.size === 1) {
+              var now = Date.now();
+              if (now - lastTap < 300) {
+                var targetZ =
+                  window.innerWidth < 600
+                    ? Math.min(getMaxZoom(), 6)
+                    : Math.min(getMaxZoom(), 3.2);
+                if (zScale > 1.2) resetZoom();
+                else zoomAround(targetZ, e.clientX, e.clientY);
+                lastTap = 0;
+              } else {
+                lastTap = now;
+              }
+            }
+            endPtr(e);
+          });
+          lbStage.addEventListener("pointercancel", endPtr);
+
+          lbIn.addEventListener("click", function () {
+            var r = lbStage.getBoundingClientRect();
+            zoomAround(zScale * 1.4, r.left + r.width / 2, r.top + r.height / 2);
+          });
+          lbOut.addEventListener("click", function () {
+            var r = lbStage.getBoundingClientRect();
+            zoomAround(zScale / 1.4, r.left + r.width / 2, r.top + r.height / 2);
+          });
+          lbFit.addEventListener("click", resetZoom);
+
+          dlg.addEventListener("keydown", function (e) {
+            if (!dlg.open) return;
+            var r = lbStage.getBoundingClientRect();
+            if (e.key === "+" || e.key === "=") {
+              e.preventDefault();
+              zoomAround(zScale * 1.4, r.left + r.width / 2, r.top + r.height / 2);
+            } else if (e.key === "-") {
+              e.preventDefault();
+              zoomAround(zScale / 1.4, r.left + r.width / 2, r.top + r.height / 2);
+            } else if (e.key === "0") {
+              e.preventDefault();
+              resetZoom();
+            }
+          });
+        }
+
         if (closeBtn && dlg) {
           closeBtn.addEventListener("click", function () {
             dlg.close();
           });
-          dlg.addEventListener("click", function (e) {
-            if (e.target === dlg || e.target === lbScroll) dlg.close();
-          });
           dlg.addEventListener("close", function () {
+            resetZoom();
             if (lastTrigger) lastTrigger.focus();
           });
         }
@@ -3284,6 +3709,11 @@
         var L = { d: "Draft", f: "Flagged", s: "Skipped" },
           tabs = document.getElementById("tabs"),
           panel = document.getElementById("panel"),
+          caseSelect = document.getElementById("case-select"),
+          casePrev = document.getElementById("case-prev"),
+          caseNext = document.getElementById("case-next"),
+          caseCount = document.getElementById("case-count"),
+          curIdx = 0,
           bs = [];
         function el(t, c, x) {
           var e = document.createElement(t);
@@ -3292,13 +3722,17 @@
           return e;
         }
         function show(i, focus) {
+          curIdx = (i + C.length) % C.length;
           bs.forEach(function (b, j) {
-            var on = i === j;
+            var on = curIdx === j;
             b.setAttribute("aria-selected", on);
             b.tabIndex = on ? 0 : -1;
           });
-          var c = C[i];
-          panel.setAttribute("aria-labelledby", "t" + i);
+          if (caseSelect) caseSelect.value = String(curIdx);
+          if (caseCount)
+            caseCount.textContent = curIdx + 1 + " / " + C.length;
+          var c = C[curIdx];
+          panel.setAttribute("aria-labelledby", "t" + curIdx);
           panel.innerHTML = "";
           var h = el("div", "panel-head");
           h.appendChild(el("span", "panel-subj", "Re: " + c[0]));
@@ -3311,9 +3745,16 @@
             body.appendChild(el("div", "draft", c[4]));
           }
           panel.appendChild(body);
-          if (focus) bs[i].focus();
+          if (focus) bs[curIdx].focus();
         }
         C.forEach(function (c, i) {
+          if (caseSelect) {
+            var opt = document.createElement("option");
+            opt.value = String(i);
+            opt.textContent =
+              i + 1 + "/" + C.length + " \u00b7 " + L[c[1]] + " \u2014 " + c[0];
+            caseSelect.appendChild(opt);
+          }
           var b = el("button");
           b.type = "button";
           b.id = "t" + i;
@@ -3343,6 +3784,21 @@
           tabs.appendChild(b);
           bs.push(b);
         });
+        if (caseSelect) {
+          caseSelect.addEventListener("change", function () {
+            show(+caseSelect.value);
+          });
+        }
+        if (casePrev) {
+          casePrev.addEventListener("click", function () {
+            show(curIdx - 1);
+          });
+        }
+        if (caseNext) {
+          caseNext.addEventListener("click", function () {
+            show(curIdx + 1);
+          });
+        }
         show(0);
 
         /* scroll-spy (tracks active visible targets; prefers #demo over #top, clears on unlinked sections) */
