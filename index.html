@@ -769,7 +769,7 @@
         color: var(--ok);
       }
 
-      /* Section 1: n8n-style horizontal pipeline */
+      /* Section 2: n8n-style horizontal pipeline */
       .pipe-shell {
         position: relative;
         margin-top: var(--s7);
@@ -807,7 +807,7 @@
           height: 9px;
           border-radius: 50%;
           background: var(--accent);
-          border: 2px solid var(--bg);
+          border: 2px solid var(--bg-2);
         }
         .flow:not(.side) li.you::before {
           background: var(--ok);
@@ -1212,7 +1212,7 @@
         }
       }
 
-      /* Section 2: Outcome explorer (Inbox + Gmail draft card) */
+      /* Section 1: Outcome explorer (Inbox + Gmail draft card) */
       .sim {
         display: grid;
         gap: var(--s4);
@@ -1924,8 +1924,8 @@
         >
         <div class="links">
           <a href="#demo">Demo</a>
-          <a href="#how">How it works</a>
           <a href="#try">Try it</a>
+          <a href="#how">How it works</a>
           <a href="#safety">Safety</a>
           <a href="#proof">Proof</a>
           <a href="#engage">Work with me</a>
@@ -2071,10 +2071,60 @@
         </div>
       </section>
 
-      <!-- 01. HOW IT WORKS -->
-      <section class="sec-bg" id="how">
+      <!-- 01. TRY IT -->
+      <section class="sec-bg" id="try">
         <div class="wrap">
-          <p class="eyebrow reveal">01 &middot; HOW IT WORKS</p>
+          <p class="eyebrow reveal">01 &middot; TRY IT</p>
+          <h2 class="reveal">Pick an email. See what happens.</h2>
+          <p class="lead reveal">
+            All 10 recorded live regression cases (6 drafts, 4 flagged). Use
+            mouse or arrow keys to switch cases.
+          </p>
+          <div class="sim reveal">
+            <div class="sim-mobile">
+              <select
+                class="sim-select"
+                id="case-select"
+                aria-label="Choose an incoming email scenario"
+              ></select>
+              <div class="sim-nav">
+                <button type="button" id="case-prev">&larr; Prev</button>
+                <span class="sim-count" id="case-count">1 / 10</span>
+                <button type="button" id="case-next">Next &rarr;</button>
+              </div>
+            </div>
+            <div
+              class="tabs"
+              role="tablist"
+              aria-label="Incoming emails"
+              aria-orientation="vertical"
+              id="tabs"
+            ></div>
+            <div
+              class="panel"
+              role="tabpanel"
+              id="panel"
+              aria-live="polite"
+              tabindex="0"
+            ></div>
+          </div>
+          <noscript
+            ><p class="fine">
+              Turn on JavaScript to try the examples. The full list of outcomes
+              is in the GitHub README.
+            </p></noscript
+          >
+          <p class="fine">
+            Illustration of recorded test outcomes. It does not run the
+            workflow.
+          </p>
+        </div>
+      </section>
+
+      <!-- 02. HOW IT WORKS -->
+      <section class="sec-bg2" id="how">
+        <div class="wrap">
+          <p class="eyebrow reveal">02 &middot; HOW IT WORKS</p>
           <h2 class="reveal">Six stages, plus recovery and error sections.</h2>
           <p class="lead reveal">
             One workflow canvas with 8 sections: Recovery, Stage 1&ndash;6,
@@ -2243,56 +2293,6 @@
               </a>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- 02. TRY IT -->
-      <section class="sec-bg2" id="try">
-        <div class="wrap">
-          <p class="eyebrow reveal">02 &middot; TRY IT</p>
-          <h2 class="reveal">Pick an email. See what happens.</h2>
-          <p class="lead reveal">
-            All 10 recorded live regression cases (6 drafts, 4 flagged). Use
-            mouse or arrow keys to switch cases.
-          </p>
-          <div class="sim reveal">
-            <div class="sim-mobile">
-              <select
-                class="sim-select"
-                id="case-select"
-                aria-label="Choose an incoming email scenario"
-              ></select>
-              <div class="sim-nav">
-                <button type="button" id="case-prev">&larr; Prev</button>
-                <span class="sim-count" id="case-count">1 / 10</span>
-                <button type="button" id="case-next">Next &rarr;</button>
-              </div>
-            </div>
-            <div
-              class="tabs"
-              role="tablist"
-              aria-label="Incoming emails"
-              aria-orientation="vertical"
-              id="tabs"
-            ></div>
-            <div
-              class="panel"
-              role="tabpanel"
-              id="panel"
-              aria-live="polite"
-              tabindex="0"
-            ></div>
-          </div>
-          <noscript
-            ><p class="fine">
-              Turn on JavaScript to try the examples. The full list of outcomes
-              is in the GitHub README.
-            </p></noscript
-          >
-          <p class="fine">
-            Illustration of recorded test outcomes. It does not run the
-            workflow.
-          </p>
         </div>
       </section>
 
@@ -2733,10 +2733,12 @@
               </p>
               <dl>
                 <div>
-                  <dt>What we cover</dt>
+                  <dt>How it works</dt>
                   <dd>
-                    A real workflow of yours: how I would structure it, where it
-                    could fail, and how I would test and hand it over.
+                    Send a 2&ndash;3 line brief of one recent or upcoming
+                    workflow beforehand. On the call I&rsquo;ll walk through how
+                    I&rsquo;d structure it, where it could fail, and how
+                    I&rsquo;d test and hand it over.
                   </dd>
                 </div>
                 <div>
@@ -3194,7 +3196,7 @@
           ],
           door2: [
             "15-minute bench vet: n8n overflow",
-            "Agency / company:\nTypical workflows and stack:\nYour time zone:\nTwo or three preferred call times:",
+            "Agency / company:\nOne workflow to walk through (2-3 lines, recent or upcoming: trigger, systems, expected outcome):\nYour time zone:\nTwo or three preferred call times:",
           ],
           general: [
             "Enquiry: Order Status Reply Drafter",
