@@ -9,6 +9,7 @@
       content="Order-status emails answered in seconds from your real order data. 6-stage n8n pipeline with atomic PostgreSQL claims, bounded recovery, and human review on every draft. 0 replies sent without a human."
     />
     <meta name="author" content="Micko Sugianto" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="theme-color" content="#0b1220" />
     <link
       rel="icon"
@@ -699,6 +700,9 @@
         font-weight: 600;
         font-size: clamp(0.92rem, 1.8vw, 1.12rem);
         color: var(--ink);
+      }
+      #va .cap {
+        left: max(var(--s5), 14.5%);
       }
       .cap small {
         display: block;
@@ -1979,7 +1983,7 @@
           </p>
           <div class="row">
             <button class="btn btn-p" id="watch" type="button">
-              Watch the 2-minute demo
+              Watch the 3-minute demo
             </button>
             <a
               class="btn btn-sec"
@@ -2002,12 +2006,12 @@
               <button
                 class="poster"
                 type="button"
-                data-embed="https://www.loom.com/embed/14d2cffc42b64e948d60d1af9de14328"
-                data-title="Order Status Reply Drafter, 2-minute demo (test data)"
+                data-embed="https://www.youtube-nocookie.com/embed/QH3z75VQRNs"
+                data-title="Order Status Reply Drafter, 3-minute demo (test data)"
                 data-ev="play-video-a"
               >
                 <img
-                  src="video-a-poster.jpg"
+                  src="video-a-poster.jpg?v=4"
                   alt=""
                   width="1280"
                   height="720"
@@ -2017,7 +2021,7 @@
                   ><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg
                 ></span>
                 <span class="cap"
-                  >Play the 2-minute demo (2m 15s)<small
+                  >Play the 3-minute demo (3m 20s)<small
                     >A real Gmail draft from a synthetic test run</small
                   ></span
                 >
@@ -2028,11 +2032,11 @@
               <span
                 >Embed blocked?
                 <a
-                  href="https://www.loom.com/share/14d2cffc42b64e948d60d1af9de14328"
+                  href="https://youtu.be/QH3z75VQRNs"
                   target="_blank"
                   rel="noopener noreferrer"
                   data-track="play-video-a"
-                  >Open on Loom</a
+                  >Open on YouTube</a
                 ></span
               >
             </div>
@@ -2783,7 +2787,7 @@
           <p class="eyebrow reveal">06 &middot; FOR HIRING MANAGERS</p>
           <h2 class="reveal">For hiring managers.</h2>
           <p class="lead reveal">
-            A 3-minute walkthrough of the pipeline, PostgreSQL idempotency
+            A 5-minute walkthrough of the pipeline, PostgreSQL idempotency
             ledger, recovery state machine and test suite, plus readable node
             close-ups and architecture docs below.
           </p>
@@ -2804,8 +2808,8 @@
                 <button
                   class="poster"
                   type="button"
-                  data-embed="https://www.loom.com/embed/6e30e049b58847f48ef64aaf45b57152"
-                  data-title="Order Status Reply Drafter, 3-minute engineering walkthrough (test data)"
+                  data-embed="https://www.youtube-nocookie.com/embed/sZgAU6DDK90"
+                  data-title="Order Status Reply Drafter, 5-minute engineering walkthrough (test data)"
                   data-ev="play-video-b"
                 >
                   <span class="play" aria-hidden="true"
@@ -2813,7 +2817,7 @@
                       <path d="M8 5v14l11-7z" /></svg
                   ></span>
                   <span class="cap"
-                    >Play the engineering walkthrough (3m 19s)<small
+                    >Play the engineering walkthrough (4m 49s)<small
                       >Architecture, PostgreSQL ledger states and test
                       suite</small
                     ></span
@@ -2825,25 +2829,24 @@
                 <span
                   >Embed blocked?
                   <a
-                    href="https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152"
+                    href="https://youtu.be/sZgAU6DDK90"
                     target="_blank"
                     rel="noopener noreferrer"
                     data-track="play-video-b"
-                    >Open on Loom</a
+                    >Open on YouTube</a
                   ></span
                 >
               </div>
               <details>
                 <summary>Walkthrough summary (text alternative)</summary>
                 <p>
-                  Covers the main workflow (recorded on an earlier canvas
-                  layout; the core nodes and logic are unchanged), the isolated
-                  <code>GetOrder</code> lookup contract, the PostgreSQL state
-                  machine keyed on <code>(mailbox, source_message_id)</code>,
-                  draft-intent recording before Gmail is called, and the offline
-                  and live verification suites. Bounded-recovery and Slack
-                  error-alert sections are shown in the updated canvas visuals
-                  and repo docs.
+                  Walks through the 6-stage pipeline with dedicated recovery and
+                  error sections, the isolated <code>GetOrder</code> lookup
+                  contract, the PostgreSQL state machine keyed on
+                  <code>(mailbox, source_message_id)</code>, draft-intent
+                  recording before Gmail is called, bounded 5-minute automatic
+                  recovery, Slack error alerting, and the offline and live
+                  verification suites.
                 </p>
               </details>
             </div>
@@ -3219,17 +3222,22 @@
           });
         });
 
-        /* video facades: load Loom only on click */
+        /* video facades: load YouTube embed only on click */
         var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
         function play(b, preventScrollFocus) {
           var u = b.getAttribute("data-embed");
           if (!u) return;
           track(b.getAttribute("data-ev"));
           var f = document.createElement("iframe");
-          f.src = u + "?hideEmbedTopBar=true&autoplay=1";
           f.title = b.getAttribute("data-title");
-          f.setAttribute("allow", "autoplay; fullscreen; picture-in-picture");
+          f.referrerPolicy = "strict-origin-when-cross-origin";
+          f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+          f.setAttribute(
+            "allow",
+            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen",
+          );
           f.setAttribute("allowfullscreen", "");
+          f.src = u + "?autoplay=1&rel=0";
           var p = b.parentNode;
           p.innerHTML = "";
           p.appendChild(f);
