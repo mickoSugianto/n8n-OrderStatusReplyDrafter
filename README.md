@@ -213,10 +213,10 @@ Recorded verification in the controlled source environment:
 
 Two captioned recordings accompany this package:
 
-| Recording | Loom Link |
+| Recording | Video Link |
 | --- | --- |
-| **Order Status Reply Drafter — Demo** (`n8n-OrderStatusReplyDrafter-demo-captioned`) — end-to-end processing of labeled test emails into verified Gmail drafts and manual-review routing | [Watch on Loom](https://www.loom.com/share/14d2cffc42b64e948d60d1af9de14328) |
-| **System Design Walkthrough** (`n8n-OrderStatusReplyDrafter-system-design-walkthrough-captioned`) — canvas tour (recorded on the prior `00`–`08` swimlane layout) covering the safety gates, the PostgreSQL ledger, and supervised recovery | [Watch on Loom](https://www.loom.com/share/6e30e049b58847f48ef64aaf45b57152) |
+| **Order Status Reply Drafter — Product Demo** (`3m 20s`, test data) — end-to-end processing of labeled test emails into verified Gmail drafts and manual-review routing | [Watch on YouTube](https://youtu.be/QH3z75VQRNs) |
+| **Order Status Reply Drafter — Engineering Walkthrough** (`4m 49s`, test data) — live walkthrough of the 6-stage pipeline with dedicated Recovery and Error sections, PostgreSQL idempotency ledger, bounded recovery, Slack alerts, and verification suites | [Watch on YouTube](https://youtu.be/sZgAU6DDK90) |
 
 ---
 
